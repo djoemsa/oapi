@@ -18,7 +18,9 @@
 - [app.go](file:///d:/Codes/oapi/internal/tui/app.go) (modified)
 
 ## Deviations from PRD
-- None. This completes and refines the route configuration and optimization features requested by the user.
+- Implemented a split config architecture:
+  - Local `oapi.yaml` in the project root is tracked in git and only defines server connection settings (host, port, and proxy-wide `dummy_api_key`).
+  - Core data configuration (`keys`, `routes`, `providers` state) is always resolved and saved to the user's global directory (`~/.config/oapi/config.yaml`). This completely prevents users from accidentally leaking active credentials and routing configurations into git history while maintaining seamless local configurations.
 
 ## Blockers or open questions
 - None.
