@@ -141,9 +141,6 @@ func (m *RoutesModel) deleteRoute(idx int) {
 func (m *RoutesModel) initAddSlotForm() {
 	providerIDs := make([]string, 0, len(registry.Providers))
 	for id := range registry.Providers {
-		if id == "google" {
-			continue // Skip Google for now
-		}
 		providerIDs = append(providerIDs, id)
 	}
 	sort.Strings(providerIDs)

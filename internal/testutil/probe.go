@@ -62,12 +62,7 @@ func ProbeKey(client HTTPClient, key config.KeyConfig) (string, error) {
 	}
 
 	// Prepare URL
-	var targetURL string
-	if key.Provider == "google" {
-		targetURL = fmt.Sprintf("%s/chat/completions?key=%s", baseURL, key.APIKey)
-	} else {
-		targetURL = fmt.Sprintf("%s/chat/completions", baseURL)
-	}
+	targetURL := fmt.Sprintf("%s/chat/completions", baseURL)
 
 	req, err := http.NewRequest("POST", targetURL, bytes.NewBuffer(bodyBytes))
 	if err != nil {
@@ -76,10 +71,8 @@ func ProbeKey(client HTTPClient, key config.KeyConfig) (string, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	// Set auth headers if not Google
-	if key.Provider != "google" {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key.APIKey))
-	}
+	// Set auth headers
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key.APIKey))
 
 	// OpenRouter special headers
 	if key.Provider == "openrouter" {

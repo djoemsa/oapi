@@ -96,13 +96,6 @@ func RewriteRequest(req *http.Request, key config.KeyConfig) (*http.Request, err
 	// Keep query params if any
 	u.RawQuery = req.URL.RawQuery
 
-	// Google specific URL parameter injection
-	if key.Provider == "google" {
-		q := u.Query()
-		q.Set("key", key.APIKey)
-		u.RawQuery = q.Encode()
-	}
-
 	// 6. Create outReq with same context
 	outReq, err := http.NewRequestWithContext(req.Context(), req.Method, u.String(), bytes.NewReader(newBodyBytes))
 	if err != nil {
@@ -116,11 +109,9 @@ func RewriteRequest(req *http.Request, key config.KeyConfig) (*http.Request, err
 		}
 	}
 
-	// Strip dummy Authorization and set the real key (or strip completely for Google)
+	// Strip dummy Authorization and set the real key
 	outReq.Header.Del("Authorization")
-	if key.Provider != "google" {
-		outReq.Header.Set("Authorization", "Bearer "+key.APIKey)
-	}
+	outReq.Header.Set("Authorization", "Bearer "+key.APIKey)
 
 	// Set Host header for HTTP forwarding
 	outReq.Host = u.Host

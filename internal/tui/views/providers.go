@@ -143,8 +143,7 @@ func (m *ProvidersModel) initForm(isEdit bool) {
 				Title("Provider").
 				Options(
 					huh.NewOption("Groq", "groq"),
-					// "Google" is disabled for now
-					// huh.NewOption("Google", "google"),
+					huh.NewOption("Google", "google"),
 					huh.NewOption("Cerebras", "cerebras"),
 					huh.NewOption("GitHub", "github"),
 					huh.NewOption("OpenRouter", "openrouter"),
