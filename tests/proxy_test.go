@@ -199,7 +199,7 @@ func TestServer_Endpoints(t *testing.T) {
 	engine := rotation.NewRotationEngine(pool)
 
 	srv := proxy.NewServer(cfg, configPath, stateMgr, pool, engine)
-	if err := srv.Start(); err != nil {
+	if err := srv.Start(ctx); err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
 	defer srv.Stop()
@@ -325,7 +325,7 @@ func TestServer_Completions_Rotation(t *testing.T) {
 	engine := rotation.NewRotationEngine(pool)
 
 	srv := proxy.NewServer(cfg, configPath, stateMgr, pool, engine)
-	if err := srv.Start(); err != nil {
+	if err := srv.Start(ctx); err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
 	defer srv.Stop()
@@ -422,7 +422,9 @@ func TestServer_Completions_Streaming(t *testing.T) {
 	engine := rotation.NewRotationEngine(pool)
 
 	srv := proxy.NewServer(cfg, configPath, stateMgr, pool, engine)
-	srv.Start()
+	if err := srv.Start(ctx); err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
 	defer srv.Stop()
 
 	time.Sleep(50 * time.Millisecond)
@@ -441,6 +443,132 @@ func TestServer_Completions_Streaming(t *testing.T) {
 	bodyBytes, _ := io.ReadAll(resp.Body)
 	if !bytes.Contains(bodyBytes, []byte("hello")) {
 		t.Errorf("expected stream data to contain 'hello', got %s", bodyBytes)
+	}
+}
+
+func TestServer_GracefulShutdown(t *testing.T) {
+	// 1. Setup mock backend that introduces artificial delay
+	requestReceived := make(chan struct{})
+	mockBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(requestReceived)
+		time.Sleep(200 * time.Millisecond) // artificial delay
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"choices": [{"message": {"content": "shutdown-success"}}]}`))
+	}))
+	defer mockBackend.Close()
+
+	// Override registry base URL for groq-shutdown provider
+	registry.Providers["groq-shutdown"] = registry.ProviderInfo{
+		ID:            "groq-shutdown",
+		BaseURL:       mockBackend.URL,
+		DefaultRPM:    30,
+		DefaultRPD:    14400,
+		ResetBehavior: registry.ResetRolling24h,
+	}
+
+	// 2. Setup config
+	tmpDir, err := os.MkdirTemp("", "oapi-test-shutdown-*")
+	if err != nil {
+		t.Fatalf("failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	cfg := config.DefaultConfig()
+	cfg.Server.Port = 9094
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.DummyAPIKey = ""
+	cfg.Keys = []config.KeyConfig{
+		{
+			ID:       "key-shutdown-1",
+			Provider: "groq-shutdown",
+			Model:    "llama-3-shutdown",
+			APIKey:   "key-shutdown",
+			Status:   "active",
+		},
+	}
+	cfg.Routes = []config.RouteConfig{
+		{
+			Name:       "default",
+			ModelAlias: "*",
+			Chain: []config.SlotConfig{
+				{Provider: "groq-shutdown", Model: "llama-3-shutdown"},
+			},
+		},
+	}
+
+	if err := config.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+
+	stateMgr := config.NewStateManager(configPath)
+	if err := stateMgr.LoadState(); err != nil {
+		t.Fatalf("failed to load state: %v", err)
+	}
+
+	// Create cancelable context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pool := rotation.NewKeyPool(ctx, cfg, configPath, stateMgr)
+	engine := rotation.NewRotationEngine(pool)
+
+	srv := proxy.NewServer(cfg, configPath, stateMgr, pool, engine)
+	if err := srv.Start(ctx); err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Fire completions request in a separate goroutine
+	errChan := make(chan error, 1)
+	respChan := make(chan *http.Response, 1)
+
+	go func() {
+		reqBody := `{"model": "alias-model", "messages": [{"role": "user", "content": "hi"}]}`
+		resp, err := http.Post("http://127.0.0.1:9094/v1/chat/completions", "application/json", bytes.NewBufferString(reqBody))
+		if err != nil {
+			errChan <- err
+			return
+		}
+		respChan <- resp
+	}()
+
+	// Wait until the request has reached the backend
+	<-requestReceived
+
+	// Cancel the context while request is in-flight to trigger shutdown
+	cancel()
+
+	// Wait for the request result
+	select {
+	case err := <-errChan:
+		t.Fatalf("request failed during shutdown: %v", err)
+	case resp := <-respChan:
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			t.Fatalf("expected status 200 during graceful shutdown, got %d. Body: %s", resp.StatusCode, body)
+		}
+		var resMap map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&resMap)
+		choices := resMap["choices"].([]interface{})
+		choice := choices[0].(map[string]interface{})
+		msg := choice["message"].(map[string]interface{})
+		if msg["content"] != "shutdown-success" {
+			t.Errorf("expected content 'shutdown-success', got %v", msg["content"])
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("timeout waiting for request response during shutdown")
+	}
+
+	// Ensure the server has stopped (srv.Stop should return immediately or be done)
+	srv.Stop()
+
+	// Verify that state.json has been written / saved (check if state.json is created)
+	statePath := filepath.Join(tmpDir, "state.json")
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Error("expected state file to exist after graceful shutdown Stop()")
 	}
 }
 

@@ -3,6 +3,7 @@ package proxy
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"oapi/internal/config"
@@ -26,6 +28,7 @@ type Server struct {
 	engine     *rotation.RotationEngine
 	httpServer *http.Server
 	startTime  time.Time
+	wg         sync.WaitGroup
 }
 
 func NewServer(cfg *config.Config, configPath string, stateMgr *config.StateManager, pool *rotation.KeyPool, engine *rotation.RotationEngine) *Server {
@@ -39,7 +42,7 @@ func NewServer(cfg *config.Config, configPath string, stateMgr *config.StateMana
 	}
 }
 
-func (s *Server) Start() error {
+func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/v1/models", s.handleModels)
@@ -58,6 +61,15 @@ func (s *Server) Start() error {
 		return err
 	}
 
+	// Spawn context watcher for shutdown
+	go func() {
+		<-ctx.Done()
+		log.Println("Shutdown signal received, starting graceful shutdown...")
+		if err := s.Stop(); err != nil {
+			log.Printf("Server stop error: %v", err)
+		}
+	}()
+
 	go func() {
 		if err := s.httpServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Printf("HTTP server Serve error: %v", err)
@@ -69,12 +81,38 @@ func (s *Server) Start() error {
 
 func (s *Server) Stop() error {
 	if s.httpServer != nil {
-		return s.httpServer.Close()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// Shutdown HTTP listener
+		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+		}
+
+		// Wait for in-flight requests to complete
+		done := make(chan struct{})
+		go func() {
+			s.wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			log.Println("All in-flight requests completed.")
+		case <-shutdownCtx.Done():
+			log.Println("Graceful shutdown timeout exceeded; forcing state flush and exit.")
+		}
+
+		// Save state atomically
+		_ = s.stateMgr.SaveState()
 	}
 	return nil
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
@@ -101,6 +139,9 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
@@ -132,6 +173,9 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCompletions(w http.ResponseWriter, r *http.Request) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return

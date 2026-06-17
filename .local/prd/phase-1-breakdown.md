@@ -240,7 +240,7 @@ Group 6 — Integration & Verification
 
 ---
 
-### T-010 — Graceful Shutdown & Context Management
+### [x] T-010 — Graceful Shutdown & Context Management
 **Goal:** Coordinate proxy server shutdown to complete in-flight transactions and flush final metrics to state.json.
 **Depends on:** T-009
 **Unblocks:** T-011
@@ -254,7 +254,7 @@ Group 6 — Integration & Verification
 **Done when:**
 * Server shuts down cleanly under SIGINT.
 * Dynamic state is saved successfully before exit.
-**Summary report:** `docs/reports/summary/{timestamp}_T-010_graceful_shutdown.md`
+**Summary report:** [20260617_142655_T-010_graceful_shutdown.md](file:///d:/Codes/oapi/docs/reports/summary/20260617_142655_T-010_graceful_shutdown.md)
 
 ---
 
@@ -425,9 +425,9 @@ Group 6 — Integration & Verification
 [x] Google query param auth works and Cerebras reasoning effort fields are injected.
 
 ### ✅ Group 3 Validation Checkpoint
-[ ] T-009, T-010 summaries written
-[ ] Chat completion forwarding and SSE streaming proxy works.
-[ ] SIGINT server shutdown terminates gracefully under 5 seconds.
+[x] T-009, T-010 summaries written
+[x] Chat completion forwarding and SSE streaming proxy works.
+[x] SIGINT server shutdown terminates gracefully under 5 seconds.
 
 ### ✅ Group 4 Validation Checkpoint
 [ ] T-011 summaries written
