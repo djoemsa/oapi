@@ -75,13 +75,14 @@ func TestRewriteRequest_Google(t *testing.T) {
 		t.Fatalf("RewriteRequest failed: %v", err)
 	}
 
-	// Verify Authorization is stripped
-	if val := rewritten.Header.Get("Authorization"); val != "" {
-		t.Errorf("expected empty Authorization header, got %s", val)
+	// Verify Authorization
+	expectedAuth := "Bearer AIza_secret"
+	if val := rewritten.Header.Get("Authorization"); val != expectedAuth {
+		t.Errorf("expected Authorization header '%s', got '%s'", expectedAuth, val)
 	}
 
-	// Verify URL query param key is injected
-	expectedURL := "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions?key=AIza_secret"
+	// Verify URL
+	expectedURL := "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 	if rewritten.URL.String() != expectedURL {
 		t.Errorf("expected URL %s, got %s", expectedURL, rewritten.URL.String())
 	}

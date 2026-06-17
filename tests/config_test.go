@@ -209,12 +209,13 @@ func TestProbeKey(t *testing.T) {
 	}
 	clientGoogle := &mockHTTPClient{
 		doFn: func(req *http.Request) (*http.Response, error) {
-			expectedURL := "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions?key=g_test"
+			expectedURL := "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 			if req.URL.String() != expectedURL {
 				t.Errorf("expected URL %s, got %s", expectedURL, req.URL.String())
 			}
-			if req.Header.Get("Authorization") != "" {
-				t.Errorf("expected empty Authorization header for Google, got %s", req.Header.Get("Authorization"))
+			expectedAuth := "Bearer g_test"
+			if req.Header.Get("Authorization") != expectedAuth {
+				t.Errorf("expected Authorization header '%s' for Google, got '%s'", expectedAuth, req.Header.Get("Authorization"))
 			}
 			return &http.Response{
 				StatusCode: http.StatusOK,

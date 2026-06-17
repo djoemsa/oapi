@@ -21,6 +21,8 @@ const (
 	routesModeAddSlot
 	routesModeDeleteRoute
 	routesModeDeleteSlot
+	routesModeWizardPrimary
+	routesModeWizardFallback
 )
 
 type RoutesModel struct {
@@ -44,6 +46,11 @@ type RoutesModel struct {
 	formRouteAlias   *string
 	formSlotProvider *string
 	formSlotModel    *string
+
+	wizardRoute        config.RouteConfig
+	wizardPrimaryForm  *huh.Form
+	wizardFallbackForm *huh.Form
+	wizardSelectedKey  string
 }
 
 func NewRoutesModel(cfg *config.Config, configPath string) RoutesModel {
@@ -68,7 +75,7 @@ func (m RoutesModel) Init() tea.Cmd {
 }
 
 func (m RoutesModel) IsEditing() bool {
-	return m.mode == routesModeAddRoute || m.mode == routesModeAddSlot
+	return m.mode == routesModeAddRoute || m.mode == routesModeAddSlot || m.mode == routesModeWizardPrimary || m.mode == routesModeWizardFallback
 }
 
 func (m *RoutesModel) saveNow() {
@@ -126,6 +133,128 @@ func (m *RoutesModel) saveRoute() {
 	m.routeIdx = len(m.cfg.Routes) - 1
 	m.saveNow()
 	m.statusMsg = "Route added successfully"
+}
+
+func (m *RoutesModel) initWizardPrimaryForm() {
+	m.wizardSelectedKey = ""
+	options := []huh.Option[string]{}
+
+	for _, k := range m.cfg.Keys {
+		label := fmt.Sprintf("%s (%s/%s)", k.ID, k.Provider, k.Model)
+		options = append(options, huh.NewOption(label, k.ID))
+	}
+
+	// If no keys configured, we can fallback to default providers so the user isn't stuck
+	if len(options) == 0 {
+		for p := range registry.Providers {
+			label := fmt.Sprintf("%s (default)", p)
+			options = append(options, huh.NewOption(label, p))
+		}
+	}
+
+	m.wizardPrimaryForm = huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Select Primary Model / Provider").
+				Options(options...).
+				Value(&m.wizardSelectedKey),
+		),
+	).WithTheme(huh.ThemeCharm())
+
+	m.wizardPrimaryForm.Init()
+}
+
+func (m *RoutesModel) saveWizardPrimary() {
+	var provider string
+	var model string
+
+	found := false
+	for _, k := range m.cfg.Keys {
+		if k.ID == m.wizardSelectedKey {
+			provider = k.Provider
+			model = k.Model
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		provider = m.wizardSelectedKey
+		if recs, ok := registry.RecommendedModels[provider]; ok && len(recs) > 0 {
+			model = recs[0]
+		} else {
+			model = "default"
+		}
+	}
+
+	m.wizardRoute.Chain = []config.SlotConfig{
+		{Provider: provider, Model: model},
+	}
+}
+
+func (m *RoutesModel) initWizardFallbackForm() {
+	m.wizardSelectedKey = ""
+	options := []huh.Option[string]{}
+
+	usedKeys := make(map[string]bool)
+	for _, s := range m.wizardRoute.Chain {
+		usedKeys[s.Provider] = true
+	}
+	for _, s := range m.wizardRoute.Fallback {
+		usedKeys[s.Provider] = true
+	}
+
+	for _, k := range m.cfg.Keys {
+		if usedKeys[k.Provider] {
+			continue
+		}
+		label := fmt.Sprintf("%s (%s/%s)", k.ID, k.Provider, k.Model)
+		options = append(options, huh.NewOption(label, k.ID))
+	}
+
+	options = append(options, huh.NewOption("[Finish and Save Route]", "finish"))
+
+	m.wizardFallbackForm = huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Select Fallback Model (or Finish)").
+				Options(options...).
+				Value(&m.wizardSelectedKey),
+		),
+	).WithTheme(huh.ThemeCharm())
+
+	m.wizardFallbackForm.Init()
+}
+
+func (m *RoutesModel) saveWizardFallback() bool {
+	if m.wizardSelectedKey == "finish" || m.wizardSelectedKey == "" {
+		return true
+	}
+
+	var provider string
+	var model string
+	for _, k := range m.cfg.Keys {
+		if k.ID == m.wizardSelectedKey {
+			provider = k.Provider
+			model = k.Model
+			break
+		}
+	}
+
+	if provider != "" {
+		m.wizardRoute.Fallback = append(m.wizardRoute.Fallback, config.SlotConfig{
+			Provider: provider,
+			Model:    model,
+		})
+	}
+
+	// If all configured keys are used, auto-finish
+	usedCount := len(m.wizardRoute.Chain) + len(m.wizardRoute.Fallback)
+	if usedCount >= len(m.cfg.Keys) {
+		return true
+	}
+
+	return false
 }
 
 func (m *RoutesModel) deleteRoute(idx int) {
@@ -299,9 +428,74 @@ func (m RoutesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 
 		if m.addRouteForm.State == huh.StateCompleted {
-			m.saveRoute()
-			m.mode = routesModeRouteList
+			m.wizardRoute = config.RouteConfig{
+				Name:       *m.formRouteName,
+				ModelAlias: *m.formRouteAlias,
+				Chain:      []config.SlotConfig{},
+				Fallback:   []config.SlotConfig{},
+			}
+			m.initWizardPrimaryForm()
+			m.mode = routesModeWizardPrimary
+			return m, nil
 		} else if m.addRouteForm.State == huh.StateAborted {
+			m.mode = routesModeRouteList
+		}
+		return m, tea.Batch(cmds...)
+
+	case routesModeWizardPrimary:
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+			m.mode = routesModeRouteList
+			return m, nil
+		}
+
+		var newForm tea.Model
+		newForm, cmd = m.wizardPrimaryForm.Update(msg)
+		m.wizardPrimaryForm = newForm.(*huh.Form)
+		cmds = append(cmds, cmd)
+
+		if m.wizardPrimaryForm.State == huh.StateCompleted {
+			m.saveWizardPrimary()
+			// Check if we have more than 1 key to offer as fallback options
+			if len(m.cfg.Keys) > 1 {
+				m.initWizardFallbackForm()
+				m.mode = routesModeWizardFallback
+			} else {
+				m.cfg.Routes = append(m.cfg.Routes, m.wizardRoute)
+				m.routeIdx = len(m.cfg.Routes) - 1
+				m.saveNow()
+				m.statusMsg = "Route added successfully"
+				m.mode = routesModeRouteList
+			}
+			return m, nil
+		} else if m.wizardPrimaryForm.State == huh.StateAborted {
+			m.mode = routesModeRouteList
+		}
+		return m, tea.Batch(cmds...)
+
+	case routesModeWizardFallback:
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+			m.mode = routesModeRouteList
+			return m, nil
+		}
+
+		var newForm tea.Model
+		newForm, cmd = m.wizardFallbackForm.Update(msg)
+		m.wizardFallbackForm = newForm.(*huh.Form)
+		cmds = append(cmds, cmd)
+
+		if m.wizardFallbackForm.State == huh.StateCompleted {
+			done := m.saveWizardFallback()
+			if done {
+				m.cfg.Routes = append(m.cfg.Routes, m.wizardRoute)
+				m.routeIdx = len(m.cfg.Routes) - 1
+				m.saveNow()
+				m.statusMsg = "Route added successfully"
+				m.mode = routesModeRouteList
+			} else {
+				m.initWizardFallbackForm()
+			}
+			return m, nil
+		} else if m.wizardFallbackForm.State == huh.StateAborted {
 			m.mode = routesModeRouteList
 		}
 		return m, tea.Batch(cmds...)
@@ -497,6 +691,28 @@ func (m RoutesModel) View() string {
 				styles.HeaderStyle.Render("Add Route"),
 				"",
 				m.addRouteForm.View(),
+			))
+
+	case routesModeWizardPrimary:
+		rightPanel = lipgloss.NewStyle().
+			Width(rightWidth).
+			PaddingLeft(2).
+			Render(lipgloss.JoinVertical(
+				lipgloss.Left,
+				styles.HeaderStyle.Render("Route Wizard: Select Primary Model"),
+				"",
+				m.wizardPrimaryForm.View(),
+			))
+
+	case routesModeWizardFallback:
+		rightPanel = lipgloss.NewStyle().
+			Width(rightWidth).
+			PaddingLeft(2).
+			Render(lipgloss.JoinVertical(
+				lipgloss.Left,
+				styles.HeaderStyle.Render("Route Wizard: Add Fallback Model"),
+				"",
+				m.wizardFallbackForm.View(),
 			))
 
 	case routesModeAddSlot:
