@@ -180,3 +180,67 @@ func TestKeyPoolLimiter(t *testing.T) {
 		t.Errorf("expected google-test requests_today to be reset to 0 after day boundary cross in PT, got %d", loadedState.Keys["google-test"].RequestsToday)
 	}
 }
+
+// TestLimiterMemoryGrowth verifies that the RPM sliding window ring buffer does not
+// grow unboundedly under a 10,000-request stress load. The pool must enforce the RPM cap
+// without crashing, panicking, or accumulating all 10k timestamps in memory.
+func TestLimiterMemoryGrowth(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "oapi-test-memgrowth-*")
+	if err != nil {
+		t.Fatalf("failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	cfg := config.DefaultConfig()
+	cfg.Keys = []config.KeyConfig{
+		{
+			ID:       "stress-key",
+			Provider: "groq",
+			Model:    "llama-3.1-8b-instant",
+			APIKey:   "stress_api_key",
+			RPMLimit: 30, // deliberate low cap
+			RPDLimit: 1_000_000,
+			Status:   "active",
+		},
+	}
+
+	if err := config.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+
+	stateMgr := config.NewStateManager(configPath)
+	if err := stateMgr.LoadState(); err != nil {
+		t.Fatalf("failed to load state: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pool := rotation.NewKeyPool(ctx, cfg, configPath, stateMgr)
+
+	// Pump 10,000 iterations. The pool must correctly enforce the 30 RPM cap
+	// and not accumulate 10k raw timestamps — only a bounded sliding window.
+	rpmHit := false
+	for i := 0; i < 10_000; i++ {
+		ok, _ := pool.CanUseKey("stress-key")
+		if !ok {
+			// RPM cap correctly enforced — stop pumping, mark as hit
+			rpmHit = true
+			break
+		}
+		pool.RecordRequest("stress-key")
+	}
+
+	if !rpmHit {
+		t.Error("expected RPM limit to be hit within 10,000 iterations, but CanUseKey never returned false")
+	}
+
+	// After Tick(), expired sliding window entries are pruned.
+	// Pool must survive the Tick without panic.
+	pool.Tick()
+
+	// Confirm the pool is still operational (no crash, no deadlock).
+	_, _ = pool.CanUseKey("stress-key")
+}

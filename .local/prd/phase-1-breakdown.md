@@ -47,7 +47,7 @@ Group 5 — Bubble Tea v2 TUI
 [x] T-016  Routes View & Editor
 [x] T-017  Logs View
 Group 6 — Integration & Verification
-[ ] T-018  Integration and Verification tests
+[x] T-018  Integration and Verification tests
 ```
 
 ### Task Index Table
@@ -441,8 +441,8 @@ Group 6 — Integration & Verification
 [x] Logs search filter isolates matching log lines and exports correctly.
 
 ### ✅ Group 6 Validation Checkpoint
-[ ] T-018 summary written
-[ ] All automated tests pass successfully (`go test ./...` returns PASS).
+[x] T-018 summary written
+[x] All automated tests pass successfully (`go test ./...` returns PASS).
 
 ---
 

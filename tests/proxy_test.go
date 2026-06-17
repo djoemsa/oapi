@@ -572,3 +572,96 @@ func TestServer_GracefulShutdown(t *testing.T) {
 	}
 }
 
+// TestServer_Completions_500Error verifies that when the upstream LLM provider returns
+// a 500 Internal Server Error, the proxy skips the failing key and, if no remaining
+// keys are available, returns a non-200 error status (503) to the client.
+func TestServer_Completions_500Error(t *testing.T) {
+	// Mock backend that always returns 500
+	mockBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error": {"message": "Internal server error"}}`))
+	}))
+	defer mockBackend.Close()
+
+	// Override registry base URL for a test-500 provider
+	registry.Providers["groq-500"] = registry.ProviderInfo{
+		ID:            "groq-500",
+		BaseURL:       mockBackend.URL,
+		DefaultRPM:    30,
+		DefaultRPD:    14400,
+		ResetBehavior: registry.ResetRolling24h,
+	}
+	defer delete(registry.Providers, "groq-500")
+
+	tmpDir, err := os.MkdirTemp("", "oapi-test-500-*")
+	if err != nil {
+		t.Fatalf("failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	cfg := config.DefaultConfig()
+	cfg.Server.Port = 9095
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.DummyAPIKey = ""
+	cfg.Keys = []config.KeyConfig{
+		{
+			ID:       "key-500",
+			Provider: "groq-500",
+			Model:    "llama-500",
+			APIKey:   "key-500-secret",
+			Status:   "active",
+		},
+	}
+	cfg.Routes = []config.RouteConfig{
+		{
+			Name:       "default",
+			ModelAlias: "*",
+			Chain: []config.SlotConfig{
+				{Provider: "groq-500", Model: "llama-500"},
+			},
+		},
+	}
+
+	if err := config.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+
+	stateMgr := config.NewStateManager(configPath)
+	if err := stateMgr.LoadState(); err != nil {
+		t.Fatalf("failed to load state: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pool := rotation.NewKeyPool(ctx, cfg, configPath, stateMgr)
+	engine := rotation.NewRotationEngine(pool)
+
+	srv := proxy.NewServer(cfg, configPath, stateMgr, pool, engine)
+	if err := srv.Start(ctx); err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	defer srv.Stop()
+
+	time.Sleep(50 * time.Millisecond)
+
+	reqBody := `{"model": "alias-model", "messages": [{"role": "user", "content": "hi"}]}`
+	resp, err := http.Post("http://127.0.0.1:9095/v1/chat/completions", "application/json", bytes.NewBufferString(reqBody))
+	if err != nil {
+		t.Fatalf("failed to send completions request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// With all keys exhausted after 500 errors, proxy must NOT return 200
+	if resp.StatusCode == http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected non-200 status when upstream returns 500, got 200. Body: %s", body)
+	}
+
+	// Should be 503 (no available keys) or 429 (all providers exhausted)
+	if resp.StatusCode != http.StatusServiceUnavailable && resp.StatusCode != http.StatusTooManyRequests {
+		body, _ := io.ReadAll(resp.Body)
+		t.Errorf("expected 503 or 429 when all keys fail with 500, got %d. Body: %s", resp.StatusCode, body)
+	}
+}
