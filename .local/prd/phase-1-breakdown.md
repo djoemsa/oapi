@@ -31,8 +31,8 @@ Group 1 — Foundation Services
 [x] T-004  Runtime State JSON Manager
 [x] T-005  Mockable HTTP Client and Connection Test Utility
 Group 2 — Core Rotation Engine & Limiter
-[ ] T-006  Key Pool & Rate Limiter
-[ ] T-007  Rotation Engine Routing
+[x] T-006  Key Pool & Rate Limiter
+[x] T-007  Rotation Engine Routing
 [ ] T-008  Request Rewriter & Forwarding Handler
 Group 3 — Proxy Server & Life-cycle
 [ ] T-009  Proxy HTTP Server & Endpoint Handling
@@ -163,7 +163,7 @@ Group 6 — Integration & Verification
 
 ---
 
-### T-006 — Key Pool & Rate Limiter
+### [x] T-006 — Key Pool & Rate Limiter
 **Goal:** Implement the thread-safe key state store, sliding window RPM tracking, and daily RPD limit verification.
 **Depends on:** T-002, T-003, T-004
 **Unblocks:** T-007
@@ -179,11 +179,11 @@ Group 6 — Integration & Verification
 **Done when:**
 * Limiter unit tests pass for rate limits (sliding window and daily).
 * Background thread successfully recovers cooling keys.
-**Summary report:** `docs/reports/summary/{timestamp}_T-006_limiter.md`
+**Summary report:** [20260617_135500_T-006_limiter.md](file:///d:/Codes/oapi/docs/reports/summary/20260617_135500_T-006_limiter.md)
 
 ---
 
-### T-007 — Rotation Engine Routing
+### [x] T-007 — Rotation Engine Routing
 **Goal:** Route incoming client requests based on primary routing chains and fallback pools.
 **Depends on:** T-006
 **Unblocks:** T-008, T-018
@@ -199,7 +199,7 @@ Group 6 — Integration & Verification
 **Done when:**
 * Unit tests verify chain traversal, slot fallback, and round-robin index advancement.
 * Boundary conditions (empty pools, unknown models) are handled safely.
-**Summary report:** `docs/reports/summary/{timestamp}_T-007_routing_engine.md`
+**Summary report:** [20260617_140500_T-007_routing_engine.md](file:///d:/Codes/oapi/docs/reports/summary/20260617_140500_T-007_routing_engine.md)
 
 ---
 
