@@ -12,3 +12,18 @@ oapi-log-*.txt
 # Build Artifacts
 oapi
 oapi.exe
+
+# Agent & Workspace Tools
+.agents/
+.local/
+!.local/prd/
+!.local/prd/*.md
+
+# Editor / IDE settings
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
