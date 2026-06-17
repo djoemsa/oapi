@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -187,7 +188,28 @@ func (m AppModel) View() string {
 	}
 
 	// Footer help
-	footer := styles.HelpStyle.Render("[tab]/[]] next tab  │  [shift+tab]/[[] prev tab  │  [s] toggle server  │  [q] quit")
+	var tabHelp string
+	switch m.activeTab {
+	case 0:
+		tabHelp = "[s] toggle server"
+	case 1:
+		if m.providers.IsEditing() {
+			tabHelp = "[enter] submit  │  [esc] cancel"
+		} else {
+			tabHelp = "[j/k/↑/↓] select key  │  [a] add key  │  [e] edit key  │  [d] delete key  │  [i] import  │  [t] test key  │  [T] test all"
+		}
+	case 2:
+		if m.routes.IsEditing() {
+			tabHelp = "[enter] submit  │  [esc] cancel"
+		} else {
+			tabHelp = "[j/k/↑/↓] select  │  [a] add route  │  [d] delete route  │  [s] add slot  │  [x] delete slot  │  [u/d] move slot  │  [esc] cancel reorder"
+		}
+	case 3:
+		tabHelp = "[j/k/↑/↓] scroll logs"
+	}
+
+	footerText := fmt.Sprintf("[tab/]] next tab  │  [shift+tab/[[] prev tab  │  %s  │  [q] quit", tabHelp)
+	footer := styles.HelpStyle.Render(footerText)
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
