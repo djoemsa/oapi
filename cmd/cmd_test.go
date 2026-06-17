@@ -6,13 +6,14 @@ import (
 
 func TestSubcommands(t *testing.T) {
 	expectedCmds := map[string]bool{
-		"serve":     true,
-		"add-key":   true,
-		"test-keys": true,
-		"status":    true,
-		"config":    true,
-		"logs":      true,
-		"version":   true,
+		"serve":      true,
+		"add-key":    true,
+		"delete-key": true,
+		"test-keys":  true,
+		"status":     true,
+		"config":     true,
+		"logs":       true,
+		"version":    true,
 	}
 
 	for _, c := range rootCmd.Commands() {

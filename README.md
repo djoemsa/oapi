@@ -71,6 +71,7 @@ go run main.go serve --port 9090
 | `go run main.go` | Starts the TUI + proxy server. |
 | `go run main.go serve` | Starts the proxy server in headless mode. |
 | `go run main.go add-key` | Interactively adds a new LLM provider API key via terminal forms. |
+| `go run main.go delete-key` | Deletes a configured API key (pass key ID or select interactively). |
 | `go run main.go status` | Displays the current status of the proxy server and key pool. |
 | `go run main.go test-keys` | Validates all API keys currently configured in the pool. |
 | `go run main.go config` | Views or edits the proxy configurations. |

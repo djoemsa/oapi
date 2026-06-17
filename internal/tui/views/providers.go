@@ -322,10 +322,15 @@ func (m ProvidersModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			err := m.saveForm()
 			if err != nil {
 				m.testMsg = fmt.Sprintf("Error saving: %v", err)
+				m.mode = modeView
+				return m, tea.Batch(cmds...)
 			} else {
-				m.testMsg = "Key saved successfully"
+				m.testMsg = fmt.Sprintf("Key saved. Testing connection for key %s...", m.cfg.Keys[m.selectedIndex].ID)
+				m.testingIndices[m.selectedIndex] = true
+				m.mode = modeView
+				cmds = append(cmds, m.testKeyCmd(m.selectedIndex))
+				return m, tea.Batch(cmds...)
 			}
-			m.mode = modeView
 		} else if m.form.State == huh.StateAborted {
 			m.mode = modeView
 		}

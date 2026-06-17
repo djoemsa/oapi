@@ -9,6 +9,7 @@ import (
 
 	"oapi/internal/config"
 	"oapi/internal/registry"
+	"oapi/internal/testutil"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -247,6 +248,23 @@ var addKeyCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Successfully added key %s to config %s\n", keyID, path)
+
+		// Test connection immediately
+		fmt.Println("Testing connection for key...")
+		client := testutil.DefaultHTTPClient()
+		status, err := testutil.ProbeKey(client, keyConfig)
+		if err != nil {
+			fmt.Printf("⚠️ Warning: Connection test failed: %v\n", err)
+			cfg.Keys[len(cfg.Keys)-1].Status = "error"
+			_ = config.SaveConfig(path, cfg)
+		} else {
+			fmt.Printf("✅ Connection test succeeded! Key status is active (marked %s)\n", status)
+			if status != "active" {
+				cfg.Keys[len(cfg.Keys)-1].Status = status
+				_ = config.SaveConfig(path, cfg)
+			}
+		}
+
 		return nil
 	},
 }
