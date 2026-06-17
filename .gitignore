@@ -15,9 +15,9 @@ oapi.exe
 
 # Agent & Workspace Tools
 .agents/
-.local/
+!.local/
+.local/*
 !.local/prd/
-!.local/prd/*.md
 
 # Editor / IDE settings
 .vscode/

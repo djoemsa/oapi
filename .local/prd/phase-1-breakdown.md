@@ -28,8 +28,8 @@ Group 0 — Orientation
 Group 1 — Foundation Services
 [x] T-002  Hardcoded Provider Registry & Model List
 [x] T-003  YAML Config Parsing and Atomic Save
-[ ] T-004  Runtime State JSON Manager
-[ ] T-005  Mockable HTTP Client and Connection Test Utility
+[x] T-004  Runtime State JSON Manager
+[x] T-005  Mockable HTTP Client and Connection Test Utility
 Group 2 — Core Rotation Engine & Limiter
 [ ] T-006  Key Pool & Rate Limiter
 [ ] T-007  Rotation Engine Routing
@@ -128,7 +128,7 @@ Group 6 — Integration & Verification
 
 ---
 
-### T-004 — Runtime State JSON Manager
+### [x] T-004 — Runtime State JSON Manager
 **Goal:** Persist key counters and cooling state variables in `state.json` with atomic writes.
 **Depends on:** T-001, T-003
 **Unblocks:** T-006, T-011
@@ -141,11 +141,11 @@ Group 6 — Integration & Verification
 **Done when:**
 * State file can be written and loaded back.
 * Concurrency checks pass for multi-goroutine state persistence.
-**Summary report:** `docs/reports/summary/{timestamp}_T-004_state_json.md`
+**Summary report:** `docs/reports/summary/20260617_134000_T-004_state_json.md`
 
 ---
 
-### T-005 — Mockable HTTP Client and Connection Test Utility
+### [x] T-005 — Mockable HTTP Client and Connection Test Utility
 **Goal:** Create a testing utility that probes provider keys for connection testing.
 **Depends on:** T-001
 **Unblocks:** T-011, T-014, T-018
@@ -159,7 +159,7 @@ Group 6 — Integration & Verification
 **Done when:**
 * Key probing logic is functional and handles standard HTTP status codes.
 * Unit tests verify behavior without firing real network requests.
-**Summary report:** `docs/reports/summary/{timestamp}_T-005_connection_probe.md`
+**Summary report:** `docs/reports/summary/20260617_134100_T-005_connection_probe.md`
 
 ---
 
@@ -414,9 +414,9 @@ Group 6 — Integration & Verification
 [x] Workspace initialized, `go.mod` exists, `.gitignore` excludes secrets.
 
 ### ✅ Group 1 Validation Checkpoint
-[ ] T-002, T-003, T-004, T-005 summaries written
-[ ] Unit tests for YAML/JSON atomic loading and saving pass.
-[ ] Connection test utility handles mocked 200/401/429/500 scenarios cleanly.
+[x] T-002, T-003, T-004, T-005 summaries written
+[x] Unit tests for YAML/JSON atomic loading and saving pass.
+[x] Connection test utility handles mocked 200/401/429/500 scenarios cleanly.
 
 ### ✅ Group 2 Validation Checkpoint
 [ ] T-006, T-007, T-008 summaries written
