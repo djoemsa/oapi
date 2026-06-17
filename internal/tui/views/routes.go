@@ -3,6 +3,7 @@ package views
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -255,6 +256,142 @@ func (m *RoutesModel) saveWizardFallback() bool {
 	}
 
 	return false
+}
+
+func (m *RoutesModel) autoGenerateRoutes() {
+	if len(m.cfg.Keys) == 0 {
+		m.statusMsg = "No keys configured to generate routes from!"
+		return
+	}
+
+	var largeKeys []config.KeyConfig
+	var fastKeys []config.KeyConfig
+	var allKeys []config.KeyConfig
+
+	for _, k := range m.cfg.Keys {
+		if k.Status != "active" && k.Status != "" {
+			continue // skip error/disabled keys
+		}
+
+		nameLower := strings.ToLower(k.Model)
+		isLarge := false
+		if strings.Contains(nameLower, "plus") ||
+			strings.Contains(nameLower, "pro") ||
+			strings.Contains(nameLower, "opus") ||
+			strings.Contains(nameLower, "70b") ||
+			strings.Contains(nameLower, "120b") ||
+			strings.Contains(nameLower, "gpt-4") ||
+			strings.Contains(nameLower, "gpt-5") {
+			isLarge = true
+		}
+
+		if isLarge {
+			largeKeys = append(largeKeys, k)
+		} else {
+			fastKeys = append(fastKeys, k)
+		}
+		allKeys = append(allKeys, k)
+	}
+
+	if len(largeKeys) == 0 {
+		largeKeys = allKeys
+	}
+	if len(fastKeys) == 0 {
+		fastKeys = allKeys
+	}
+
+	getKeyRPM := func(key config.KeyConfig) int {
+		rpm := 0
+		if prov, ok := registry.Providers[key.Provider]; ok {
+			rpm = prov.DefaultRPM
+		}
+		if key.Provider == "groq" {
+			if override, exists := registry.GroqModelOverrides[key.Model]; exists {
+				if override.RPM > 0 {
+					rpm = override.RPM
+				}
+			}
+		}
+		if key.RPMLimit > 0 {
+			rpm = key.RPMLimit
+		}
+		return rpm
+	}
+
+	sortByRPM := func(keys []config.KeyConfig) []config.SlotConfig {
+		slots := make([]config.SlotConfig, len(keys))
+		for i, k := range keys {
+			slots[i] = config.SlotConfig{Provider: k.Provider, Model: k.Model}
+		}
+		sort.Slice(slots, func(i, j int) bool {
+			rpmI := 0
+			for _, k := range keys {
+				if k.Provider == slots[i].Provider && k.Model == slots[i].Model {
+					rpmI = getKeyRPM(k)
+					break
+				}
+			}
+			rpmJ := 0
+			for _, k := range keys {
+				if k.Provider == slots[j].Provider && k.Model == slots[j].Model {
+					rpmJ = getKeyRPM(k)
+					break
+				}
+			}
+			return rpmI > rpmJ
+		})
+		return slots
+	}
+
+	largeSlots := sortByRPM(largeKeys)
+	fastSlots := sortByRPM(fastKeys)
+	allSlots := sortByRPM(allKeys)
+
+	routeLarge := config.RouteConfig{
+		Name:       "Auto Optimal Large Route",
+		ModelAlias: "large",
+		Chain:      largeSlots[:1],
+	}
+	if len(largeSlots) > 1 {
+		routeLarge.Fallback = largeSlots[1:]
+	}
+
+	routeFast := config.RouteConfig{
+		Name:       "Auto Optimal Fast Route",
+		ModelAlias: "fast",
+		Chain:      fastSlots[:1],
+	}
+	if len(fastSlots) > 1 {
+		routeFast.Fallback = fastSlots[1:]
+	}
+
+	routeDefault := config.RouteConfig{
+		Name:       "Auto Default Route",
+		ModelAlias: "default",
+		Chain:      allSlots[:1],
+	}
+	if len(allSlots) > 1 {
+		routeDefault.Fallback = allSlots[1:]
+	}
+
+	for _, autoRoute := range []config.RouteConfig{routeLarge, routeFast, routeDefault} {
+		foundIdx := -1
+		for idx, r := range m.cfg.Routes {
+			if r.ModelAlias == autoRoute.ModelAlias {
+				foundIdx = idx
+				break
+			}
+		}
+		if foundIdx != -1 {
+			m.cfg.Routes[foundIdx] = autoRoute
+		} else {
+			m.cfg.Routes = append(m.cfg.Routes, autoRoute)
+		}
+	}
+
+	m.saveNow()
+	m.routeIdx = 0
+	m.statusMsg = "Optimal routes auto-generated successfully!"
 }
 
 func (m *RoutesModel) deleteRoute(idx int) {
@@ -566,6 +703,8 @@ func (m RoutesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "a":
 				m.initAddRouteForm()
 				m.mode = routesModeAddRoute
+			case "o":
+				m.autoGenerateRoutes()
 			case "d", "x":
 				if len(m.cfg.Routes) > 0 {
 					m.mode = routesModeDeleteRoute
@@ -826,7 +965,7 @@ func (m RoutesModel) View() string {
 			// Footer guidelines
 			details = append(details, "", lipgloss.NewStyle().Foreground(styles.ColorBorder).Render("--------------------------------------"))
 			if m.mode == routesModeRouteList {
-				details = append(details, styles.HelpStyle.Render("[a] add route  │  [d] delete route  │  [Enter] edit slots"))
+				details = append(details, styles.HelpStyle.Render("[a] add route  │  [d] delete route  │  [o] auto-optimize  │  [Enter] edit slots"))
 			} else {
 				details = append(details, styles.HelpStyle.Render("[j/k] navigate slots  │  [↑/↓] reorder slot  │  [Space] toggle pool  │  [a] add slot  │  [d] delete slot  │  [Esc] back"))
 			}

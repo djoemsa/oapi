@@ -202,7 +202,7 @@ func (m AppModel) View() string {
 		if m.routes.IsEditing() {
 			tabHelp = "[enter] submit  │  [esc] cancel"
 		} else {
-			tabHelp = "[j/k/↑/↓] select  │  [a] add route  │  [d] delete route  │  [s] add slot  │  [x] delete slot  │  [u/d] move slot  │  [esc] cancel reorder"
+			tabHelp = "[j/k/↑/↓] select  │  [a] add  │  [d] delete  │  [o] auto-optimize  │  [s] add slot  │  [x] delete slot  │  [u/d] move slot"
 		}
 	case 3:
 		tabHelp = "[j/k/↑/↓] scroll logs"
