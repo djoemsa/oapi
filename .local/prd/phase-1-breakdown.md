@@ -35,7 +35,7 @@ Group 2 — Core Rotation Engine & Limiter
 [x] T-007  Rotation Engine Routing
 [x] T-008  Request Rewriter & Forwarding Handler
 Group 3 — Proxy Server & Life-cycle
-[ ] T-009  Proxy HTTP Server & Endpoint Handling
+[x] T-009  Proxy HTTP Server & Endpoint Handling
 [ ] T-010  Graceful Shutdown & Context Management
 Group 4 — CLI Interfaces
 [ ] T-011  Cobra Subcommands
@@ -222,7 +222,7 @@ Group 6 — Integration & Verification
 
 ---
 
-### T-009 — Proxy HTTP Server & Endpoint Handling
+### [x] T-009 — Proxy HTTP Server & Endpoint Handling
 **Goal:** Spin up the local HTTP proxy listener to serve chat completions, model lists, and health checks.
 **Depends on:** T-008
 **Unblocks:** T-010
@@ -236,7 +236,7 @@ Group 6 — Integration & Verification
 **Done when:**
 * HTTP proxy responds correctly to completions, models, and health routes.
 * Streaming request tests verify that data packets flow immediately without buffering.
-**Summary report:** `docs/reports/summary/{timestamp}_T-009_proxy_server.md`
+**Summary report:** [20260617_142100_T-009_proxy_server.md](file:///d:/Codes/oapi/docs/reports/summary/20260617_142100_T-009_proxy_server.md)
 
 ---
 

@@ -2,13 +2,20 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"oapi/internal/config"
 	"oapi/internal/proxy"
+	"oapi/internal/registry"
+	"oapi/internal/rotation"
 )
 
 func TestRewriteRequest_Standard(t *testing.T) {
@@ -158,3 +165,282 @@ func TestRewriteRequest_Cerebras(t *testing.T) {
 		t.Errorf("expected max_tokens to remain 50, got %v", bodyMap3["max_tokens"])
 	}
 }
+
+func TestServer_Endpoints(t *testing.T) {
+	// Setup config
+	tmpDir, err := os.MkdirTemp("", "oapi-test-server-*")
+	if err != nil {
+		t.Fatalf("failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	cfg := config.DefaultConfig()
+	cfg.Server.Port = 9091 // Use separate port to avoid conflicts
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.DummyAPIKey = "test-token"
+	cfg.Routes = []config.RouteConfig{
+		{Name: "route1", ModelAlias: "model-1"},
+	}
+
+	if err := config.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+
+	stateMgr := config.NewStateManager(configPath)
+	if err := stateMgr.LoadState(); err != nil {
+		t.Fatalf("failed to load state: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pool := rotation.NewKeyPool(ctx, cfg, configPath, stateMgr)
+	engine := rotation.NewRotationEngine(pool)
+
+	srv := proxy.NewServer(cfg, configPath, stateMgr, pool, engine)
+	if err := srv.Start(); err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	defer srv.Stop()
+
+	// Give the server a small moment to start up
+	time.Sleep(50 * time.Millisecond)
+
+	// 1. Test health check (no auth required)
+	resp, err := http.Get("http://127.0.0.1:9091/health")
+	if err != nil {
+		t.Fatalf("failed to GET health: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+	var health map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&health)
+	if health["status"] != "healthy" {
+		t.Errorf("expected status healthy, got %v", health["status"])
+	}
+
+	// 2. Test models list (auth required)
+	req, _ := http.NewRequest("GET", "http://127.0.0.1:9091/v1/models", nil)
+	req.Header.Set("Authorization", "Bearer test-token")
+	resp2, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to GET models: %v", err)
+	}
+	defer resp2.Body.Close()
+
+	if resp2.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp2.StatusCode)
+	}
+	var models map[string]interface{}
+	json.NewDecoder(resp2.Body).Decode(&models)
+	dataList, _ := models["data"].([]interface{})
+	if len(dataList) != 1 {
+		t.Errorf("expected 1 model, got %d", len(dataList))
+	}
+}
+
+func TestServer_Completions_Rotation(t *testing.T) {
+	// 1. Setup a mock LLM provider server that counts requests
+	requestCount := 0
+	mockBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		if requestCount == 1 {
+			// First key: return 429 Too Many Requests
+			w.Header().Set("Retry-After", "5")
+			w.Header().Set("x-ratelimit-remaining-requests", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			w.Write([]byte(`{"error": {"message": "Rate limit exceeded"}}`))
+			return
+		}
+		// Second key: return 200 OK
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"choices": [{"message": {"content": "success"}}]}`))
+	}))
+	defer mockBackend.Close()
+
+	// 2. Setup config
+	tmpDir, err := os.MkdirTemp("", "oapi-test-rotation-*")
+	if err != nil {
+		t.Fatalf("failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	cfg := config.DefaultConfig()
+	cfg.Server.Port = 9092
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.DummyAPIKey = "" // no auth required for simplicity
+	cfg.Keys = []config.KeyConfig{
+		{
+			ID:       "key-1",
+			Provider: "groq",
+			Model:    "llama-3.1-8b-instant",
+			APIKey:   "key1",
+			Status:   "active",
+		},
+		{
+			ID:       "key-2",
+			Provider: "groq",
+			Model:    "llama-3.1-8b-instant",
+			APIKey:   "key2",
+			Status:   "active",
+		},
+	}
+	cfg.Routes = []config.RouteConfig{
+		{
+			Name:       "default",
+			ModelAlias: "*",
+			Chain: []config.SlotConfig{
+				{Provider: "groq", Model: "llama-3.1-8b-instant"},
+			},
+		},
+	}
+
+	// Override registry base URL for groq to point to our mock backend!
+	registry.Providers["groq"] = registry.ProviderInfo{
+		ID:            "groq",
+		BaseURL:       mockBackend.URL,
+		DefaultRPM:    30,
+		DefaultRPD:    14400,
+		ResetBehavior: registry.ResetRolling24h,
+	}
+
+	if err := config.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+
+	stateMgr := config.NewStateManager(configPath)
+	if err := stateMgr.LoadState(); err != nil {
+		t.Fatalf("failed to load state: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pool := rotation.NewKeyPool(ctx, cfg, configPath, stateMgr)
+	engine := rotation.NewRotationEngine(pool)
+
+	srv := proxy.NewServer(cfg, configPath, stateMgr, pool, engine)
+	if err := srv.Start(); err != nil {
+		t.Fatalf("failed to start server: %v", err)
+	}
+	defer srv.Stop()
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Fire completions request
+	reqBody := `{"model": "alias-model", "messages": [{"role": "user", "content": "hi"}]}`
+	resp, err := http.Post("http://127.0.0.1:9092/v1/chat/completions", "application/json", bytes.NewBufferString(reqBody))
+	if err != nil {
+		t.Fatalf("failed to send completions request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d. Body: %s", resp.StatusCode, body)
+	}
+
+	var resMap map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&resMap)
+	choices := resMap["choices"].([]interface{})
+	choice := choices[0].(map[string]interface{})
+	msg := choice["message"].(map[string]interface{})
+	if msg["content"] != "success" {
+		t.Errorf("expected content 'success', got %v", msg["content"])
+	}
+
+	// Verify key-1 got marked as cooling_rpd or cooling_rpm
+	if pool.GetKeysForProviderAndModel("groq", "llama-3.1-8b-instant")[0].Status != "cooling_rpd" {
+		t.Errorf("expected key-1 status to be cooling_rpd, got %s", pool.GetKeysForProviderAndModel("groq", "llama-3.1-8b-instant")[0].Status)
+	}
+}
+
+func TestServer_Completions_Streaming(t *testing.T) {
+	// Setup mock streaming backend
+	mockBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("data: {\"choices\": [{\"delta\": {\"content\": \"hello\"}}]}\n\ndata: [DONE]\n\n"))
+	}))
+	defer mockBackend.Close()
+
+	// Setup config
+	tmpDir, err := os.MkdirTemp("", "oapi-test-stream-*")
+	if err != nil {
+		t.Fatalf("failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	cfg := config.DefaultConfig()
+	cfg.Server.Port = 9093
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Keys = []config.KeyConfig{
+		{
+			ID:       "key-stream",
+			Provider: "mistral",
+			Model:    "mistral-small-2506",
+			APIKey:   "key1",
+			Status:   "active",
+		},
+	}
+	cfg.Routes = []config.RouteConfig{
+		{
+			Name:       "default",
+			ModelAlias: "*",
+			Chain: []config.SlotConfig{
+				{Provider: "mistral", Model: "mistral-small-2506"},
+			},
+		},
+	}
+
+	// Override registry base URL for mistral to point to our mock backend!
+	registry.Providers["mistral"] = registry.ProviderInfo{
+		ID:            "mistral",
+		BaseURL:       mockBackend.URL,
+		DefaultRPM:    300,
+		DefaultRPD:    0,
+		ResetBehavior: registry.ResetNone,
+	}
+
+	if err := config.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+
+	stateMgr := config.NewStateManager(configPath)
+	stateMgr.LoadState()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pool := rotation.NewKeyPool(ctx, cfg, configPath, stateMgr)
+	engine := rotation.NewRotationEngine(pool)
+
+	srv := proxy.NewServer(cfg, configPath, stateMgr, pool, engine)
+	srv.Start()
+	defer srv.Stop()
+
+	time.Sleep(50 * time.Millisecond)
+
+	reqBody := `{"model": "alias-model", "stream": true, "messages": []}`
+	resp, err := http.Post("http://127.0.0.1:9093/v1/chat/completions", "application/json", bytes.NewBufferString(reqBody))
+	if err != nil {
+		t.Fatalf("failed to send completions request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	if !bytes.Contains(bodyBytes, []byte("hello")) {
+		t.Errorf("expected stream data to contain 'hello', got %s", bodyBytes)
+	}
+}
+
