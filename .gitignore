@@ -1,0 +1,14 @@
+# Credentials & Configuration
+oapi.yaml
+oapi.yaml.tmp
+
+# State & Cache
+state.json
+state.json.tmp
+
+# Log Exports
+oapi-log-*.txt
+
+# Build Artifacts
+oapi
+oapi.exe
