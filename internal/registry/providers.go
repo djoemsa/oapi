@@ -77,6 +77,13 @@ var Providers = map[string]ProviderInfo{
 		DefaultRPD:    1000,
 		ResetBehavior: ResetRolling24h,
 	},
+	"opencode": {
+		ID:            "opencode",
+		BaseURL:       "https://opencode.ai/zen/v1",
+		DefaultRPM:    60,
+		DefaultRPD:    10000,
+		ResetBehavior: ResetRolling24h,
+	},
 }
 
 // Groq specific model overrides
@@ -127,4 +134,5 @@ var RecommendedModels = map[string][]string{
 	"mistral":    {"mistral-small-2506", "ministral-3b-2512"},
 	"github":     {"gpt-4o-mini", "Meta-Llama-3.1-70B-Instruct"},
 	"nvidia":     {"meta/llama-4-maverick-17b-128e-instruct"},
+	"opencode":   {"deepseek-v4-flash-free", "mimo-v2.5-free", "north-mini-code-free", "nemotron-3-ultra-free", "big-pickle"},
 }
