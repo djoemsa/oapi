@@ -58,6 +58,10 @@ func (m RoutesModel) Init() tea.Cmd {
 	return nil
 }
 
+func (m RoutesModel) IsEditing() bool {
+	return m.mode == routesModeAddRoute || m.mode == routesModeAddSlot
+}
+
 func (m *RoutesModel) saveNow() {
 	_ = config.SaveConfig(m.configPath, m.cfg)
 	m.isDirty = false

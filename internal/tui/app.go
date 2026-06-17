@@ -55,19 +55,38 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Handle global key events first
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		switch keyMsg.String() {
-		case "ctrl+c", "q":
+		// ctrl+c always exits the app
+		if keyMsg.String() == "ctrl+c" {
 			if m.tuiCfg.Cancel != nil {
 				m.tuiCfg.Cancel()
 			}
 			m.routes.FlushIfDirty()
 			return m, tea.Quit
-		case "tab", "]":
-			m.activeTab = (m.activeTab + 1) % 4
-			return m, nil
-		case "shift+tab", "[":
-			m.activeTab = (m.activeTab - 1 + 4) % 4
-			return m, nil
+		}
+
+		// Other global commands should only execute when we are not in an input form
+		isEditing := false
+		if m.activeTab == 1 && m.providers.IsEditing() {
+			isEditing = true
+		} else if m.activeTab == 2 && m.routes.IsEditing() {
+			isEditing = true
+		}
+
+		if !isEditing {
+			switch keyMsg.String() {
+			case "q":
+				if m.tuiCfg.Cancel != nil {
+					m.tuiCfg.Cancel()
+				}
+				m.routes.FlushIfDirty()
+				return m, tea.Quit
+			case "tab", "]":
+				m.activeTab = (m.activeTab + 1) % 4
+				return m, nil
+			case "shift+tab", "[":
+				m.activeTab = (m.activeTab - 1 + 4) % 4
+				return m, nil
+			}
 		}
 	}
 

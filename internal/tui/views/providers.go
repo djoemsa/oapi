@@ -93,6 +93,10 @@ func (m ProvidersModel) Init() tea.Cmd {
 	return nil
 }
 
+func (m ProvidersModel) IsEditing() bool {
+	return m.mode == modeForm || m.mode == modeImportPath
+}
+
 func (m *ProvidersModel) initForm(isEdit bool) {
 	m.isEdit = isEdit
 	if isEdit {
