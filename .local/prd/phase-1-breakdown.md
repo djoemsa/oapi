@@ -42,8 +42,8 @@ Group 4 — CLI Interfaces
 Group 5 — Bubble Tea v2 TUI
 [x] T-012  Lipgloss Styles & Main TUI App Model
 [x] T-013  Dashboard View
-[ ] T-014  Providers View & Connection Test Trigger
-[ ] T-015  Add/Edit Key Form (Huh)
+[x] T-014  Providers View & Connection Test Trigger
+[x] T-015  Add/Edit Key Form (Huh)
 [ ] T-016  Routes View & Editor
 [ ] T-017  Logs View
 Group 6 — Integration & Verification
@@ -434,9 +434,9 @@ Group 6 — Integration & Verification
 [x] Headless serve command and status check execute as expected from CLI interface.
 
 ### ✅ Group 5 Validation Checkpoint
-[ ] T-012 (Done), T-013 (Done), T-014, T-015, T-016, T-017 summaries written
+[ ] T-012 (Done), T-013 (Done), T-014 (Done), T-015 (Done), T-016, T-017 summaries written
 [x] Live dashboard refreshes stats every second.
-[ ] Key deletion and import from JSON are fully verified.
+[x] Key deletion and import from JSON are fully verified.
 [ ] Routes editor reorders slots using key bindings.
 [ ] Logs search filter isolates matching log lines and exports correctly.
 

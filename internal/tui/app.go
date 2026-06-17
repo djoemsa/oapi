@@ -36,7 +36,7 @@ func New(tuiCfg TUIConfig) AppModel {
 	return AppModel{
 		tuiCfg:    tuiCfg,
 		dashboard: views.NewDashboardModel(tuiCfg.Ctx, tuiCfg.Cfg, tuiCfg.ConfigPath, tuiCfg.StateMgr, tuiCfg.Pool, tuiCfg.Engine),
-		providers: views.NewProvidersModel(),
+		providers: views.NewProvidersModel(tuiCfg.Ctx, tuiCfg.Cfg, tuiCfg.ConfigPath, tuiCfg.StateMgr, tuiCfg.Pool),
 		routes:    views.NewRoutesModel(),
 		logs:      views.NewLogsModel(),
 	}
