@@ -33,7 +33,7 @@ Group 1 — Foundation Services
 Group 2 — Core Rotation Engine & Limiter
 [x] T-006  Key Pool & Rate Limiter
 [x] T-007  Rotation Engine Routing
-[ ] T-008  Request Rewriter & Forwarding Handler
+[x] T-008  Request Rewriter & Forwarding Handler
 Group 3 — Proxy Server & Life-cycle
 [ ] T-009  Proxy HTTP Server & Endpoint Handling
 [ ] T-010  Graceful Shutdown & Context Management
@@ -203,7 +203,7 @@ Group 6 — Integration & Verification
 
 ---
 
-### T-008 — Request Rewriter & Forwarding Handler
+### [x] T-008 — Request Rewriter & Forwarding Handler
 **Goal:** Rewrite incoming client payloads, authorize requests, and handle specific provider parameters.
 **Depends on:** T-007
 **Unblocks:** T-009
@@ -218,7 +218,7 @@ Group 6 — Integration & Verification
 **Done when:**
 * Forwarded requests match downstream provider specifications exactly.
 * Unit tests confirm payload updates for Google and Cerebras.
-**Summary report:** `docs/reports/summary/{timestamp}_T-008_forwarding_handler.md`
+**Summary report:** [20260617_141700_T-008_forwarding_handler.md](file:///d:/Codes/oapi/docs/reports/summary/20260617_141700_T-008_forwarding_handler.md)
 
 ---
 
@@ -419,10 +419,10 @@ Group 6 — Integration & Verification
 [x] Connection test utility handles mocked 200/401/429/500 scenarios cleanly.
 
 ### ✅ Group 2 Validation Checkpoint
-[ ] T-006, T-007, T-008 summaries written
-[ ] Limiter sliding window keeps memory footprint bounded.
-[ ] Routing engine round-robin indices work correctly across multiple active slots.
-[ ] Google query param auth works and Cerebras reasoning effort fields are injected.
+[x] T-006, T-007, T-008 summaries written
+[x] Limiter sliding window keeps memory footprint bounded.
+[x] Routing engine round-robin indices work correctly across multiple active slots.
+[x] Google query param auth works and Cerebras reasoning effort fields are injected.
 
 ### ✅ Group 3 Validation Checkpoint
 [ ] T-009, T-010 summaries written
