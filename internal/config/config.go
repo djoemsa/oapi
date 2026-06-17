@@ -92,6 +92,15 @@ func ResolveConfigPath(flagPath string) (string, error) {
 	return filepath.Join(home, ".config", "oapi", "config.yaml"), nil
 }
 
+// GetGlobalConfigPath returns the path to the user's global config file.
+func GetGlobalConfigPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".config", "oapi", "config.yaml"), nil
+}
+
 // LoadConfig reads and parses the configuration file at the given path.
 func LoadConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
@@ -104,12 +113,81 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config YAML: %w", err)
 	}
 
+	// If using the local repository config file, always load keys, routes, and providers
+	// from the user's global config.yaml
+	if path == "oapi.yaml" {
+		globalPath, err := GetGlobalConfigPath()
+		if err == nil {
+			if _, statErr := os.Stat(globalPath); statErr == nil {
+				if globalData, readErr := os.ReadFile(globalPath); readErr == nil {
+					globalCfg := &Config{}
+					if unmarshalErr := yaml.Unmarshal(globalData, globalCfg); unmarshalErr == nil {
+						cfg.Keys = globalCfg.Keys
+						cfg.Routes = globalCfg.Routes
+						cfg.Providers = globalCfg.Providers
+					}
+				}
+			}
+		}
+	}
+
 	return cfg, nil
 }
 
 // SaveConfig writes the configuration to the target path atomically.
 func SaveConfig(path string, cfg *Config) error {
-	// Ensure parent directory exists
+	// If it is the local repository configuration, split the saves:
+	// Server config goes to local oapi.yaml; keys/routes/providers go to user's global config.yaml
+	if path == "oapi.yaml" {
+		// 1. Save local server configuration to ./oapi.yaml
+		localCfg := &Config{
+			Server: cfg.Server,
+		}
+		localData, err := yaml.Marshal(localCfg)
+		if err != nil {
+			return fmt.Errorf("failed to marshal local config: %w", err)
+		}
+		if err := os.WriteFile("oapi.yaml", localData, 0644); err != nil {
+			return fmt.Errorf("failed to write local config: %w", err)
+		}
+
+		// 2. Save keys, routes, and providers to global config.yaml
+		globalPath, err := GetGlobalConfigPath()
+		if err != nil {
+			return fmt.Errorf("failed to resolve global config path: %w", err)
+		}
+		globalCfg := &Config{
+			Keys:      cfg.Keys,
+			Routes:    cfg.Routes,
+			Providers: cfg.Providers,
+		}
+		// Keep server block valid on global config
+		globalCfg.Server.Port = 8080
+		globalCfg.Server.Host = "127.0.0.1"
+
+		dir := filepath.Dir(globalPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create global config directory: %w", err)
+		}
+
+		globalData, err := yaml.Marshal(globalCfg)
+		if err != nil {
+			return fmt.Errorf("failed to marshal global config: %w", err)
+		}
+
+		tmpFile := globalPath + ".tmp"
+		if err := os.WriteFile(tmpFile, globalData, 0600); err != nil {
+			return fmt.Errorf("failed to write temporary global config: %w", err)
+		}
+		if err := os.Rename(tmpFile, globalPath); err != nil {
+			_ = os.Remove(tmpFile)
+			return fmt.Errorf("failed to atomically save global config: %w", err)
+		}
+
+		return nil
+	}
+
+	// Normal save for other paths
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
@@ -128,7 +206,6 @@ func SaveConfig(path string, cfg *Config) error {
 
 	// Rename temporary file to target path atomically
 	if err := os.Rename(tmpFile, path); err != nil {
-		// Cleanup the temporary file on error
 		_ = os.Remove(tmpFile)
 		return fmt.Errorf("failed to atomically rename config file: %w", err)
 	}
