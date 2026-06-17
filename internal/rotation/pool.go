@@ -207,3 +207,53 @@ func (kp *KeyPool) Tick() {
 		_ = config.SaveConfig(kp.configPath, kp.cfg)
 	}
 }
+
+// KeyStats holds display metrics for a single key.
+type KeyStats struct {
+	RPMUsed   int
+	RPDUsed   int
+	LastUsed  time.Time
+	Cooling   bool
+	CoolUntil *time.Time
+}
+
+// GetKeyStats returns current runtime stats for a key by its ID.
+// Thread-safe (uses RLock).
+func (kp *KeyPool) GetKeyStats(keyID string) (KeyStats, bool) {
+	kp.mu.RLock()
+	defer kp.mu.RUnlock()
+
+	found := false
+	for _, k := range kp.cfg.Keys {
+		if k.ID == keyID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return KeyStats{}, false
+	}
+
+	rpmUsed := len(kp.rpmTimestamps[keyID])
+	state := kp.stateMgr.GetState()
+	keyState, exists := state.Keys[keyID]
+	if !exists {
+		return KeyStats{
+			RPMUsed: rpmUsed,
+		}, true
+	}
+
+	cooling := false
+	if keyState.CoolingUntil != nil {
+		cooling = time.Now().Before(*keyState.CoolingUntil)
+	}
+
+	return KeyStats{
+		RPMUsed:   rpmUsed,
+		RPDUsed:   keyState.RequestsToday,
+		LastUsed:  keyState.LastUsed,
+		Cooling:   cooling,
+		CoolUntil: keyState.CoolingUntil,
+	}, true
+}
+

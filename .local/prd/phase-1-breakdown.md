@@ -36,12 +36,12 @@ Group 2 — Core Rotation Engine & Limiter
 [x] T-008  Request Rewriter & Forwarding Handler
 Group 3 — Proxy Server & Life-cycle
 [x] T-009  Proxy HTTP Server & Endpoint Handling
-[ ] T-010  Graceful Shutdown & Context Management
+[x] T-010  Graceful Shutdown & Context Management
 Group 4 — CLI Interfaces
-[ ] T-011  Cobra Subcommands
+[x] T-011  Cobra Subcommands
 Group 5 — Bubble Tea v2 TUI
-[ ] T-012  Lipgloss Styles & Main TUI App Model
-[ ] T-013  Dashboard View
+[x] T-012  Lipgloss Styles & Main TUI App Model
+[x] T-013  Dashboard View
 [ ] T-014  Providers View & Connection Test Trigger
 [ ] T-015  Add/Edit Key Form (Huh)
 [ ] T-016  Routes View & Editor
@@ -258,7 +258,7 @@ Group 6 — Integration & Verification
 
 ---
 
-### T-011 — Cobra Subcommands
+### [x] T-011 — Cobra Subcommands
 **Goal:** Implement the Cobra-based command line interface for non-interactive controls.
 **Depends on:** T-003, T-004, T-005, T-010
 **Unblocks:** T-012
@@ -277,7 +277,7 @@ Group 6 — Integration & Verification
 **Done when:**
 * Standard CLI commands compile and respond with appropriate usage info.
 * Configuration paths are properly wired into flags.
-**Summary report:** `docs/reports/summary/{timestamp}_T-011_cli_subcommands.md`
+**Summary report:** [20260617_144629_T-011_cobra-subcommands.md](file:///d:/Codes/oapi/docs/reports/summary/20260617_144629_T-011_cobra-subcommands.md)
 
 ---
 
@@ -296,7 +296,7 @@ Group 6 — Integration & Verification
 **Done when:**
 * Main TUI application compiles and starts in alternate screen buffer.
 * Keyboard inputs (`q`, `ctrl+c`, `tab` / brackets shortcuts) navigate successfully.
-**Summary report:** `docs/reports/summary/{timestamp}_T-012_tui_app_root.md`
+**Summary report:** [20260617_151800_T-012_tui-app-root.md](file:///d:/Codes/oapi/docs/reports/summary/20260617_151800_T-012_tui-app-root.md)
 
 ---
 
@@ -314,7 +314,7 @@ Group 6 — Integration & Verification
 **Done when:**
 * Dashboard renders live stats correctly.
 * Keyboard controls toggle server state successfully.
-**Summary report:** `docs/reports/summary/{timestamp}_T-013_dashboard_view.md`
+**Summary report:** [20260617_151800_T-013_dashboard-view.md](file:///d:/Codes/oapi/docs/reports/summary/20260617_151800_T-013_dashboard-view.md)
 
 ---
 
@@ -430,12 +430,12 @@ Group 6 — Integration & Verification
 [x] SIGINT server shutdown terminates gracefully under 5 seconds.
 
 ### ✅ Group 4 Validation Checkpoint
-[ ] T-011 summaries written
-[ ] Headless serve command and status check execute as expected from CLI interface.
+[x] T-011 summaries written
+[x] Headless serve command and status check execute as expected from CLI interface.
 
 ### ✅ Group 5 Validation Checkpoint
-[ ] T-012, T-013, T-014, T-015, T-016, T-017 summaries written
-[ ] Live dashboard refreshes stats every second.
+[ ] T-012 (Done), T-013 (Done), T-014, T-015, T-016, T-017 summaries written
+[x] Live dashboard refreshes stats every second.
 [ ] Key deletion and import from JSON are fully verified.
 [ ] Routes editor reorders slots using key bindings.
 [ ] Logs search filter isolates matching log lines and exports correctly.

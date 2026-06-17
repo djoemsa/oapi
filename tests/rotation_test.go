@@ -321,3 +321,46 @@ func TestExhaustionAndRateLimitError(t *testing.T) {
 		t.Errorf("expected earliest available time close to %v, got %v (diff: %v)", t1, rateErr.EarliestAvailable, diff)
 	}
 }
+
+func TestGetKeyStats(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Keys = []config.KeyConfig{
+		{
+			ID:       "key-1",
+			Provider: "groq",
+			Model:    "model-1",
+			Status:   "active",
+		},
+	}
+	pool, _, _, cleanup := setupTestEngine(t, cfg)
+	defer cleanup()
+
+	// 1. Check initially active key
+	stats, found := pool.GetKeyStats("key-1")
+	if !found {
+		t.Fatalf("expected key-1 to be found")
+	}
+	if stats.Cooling {
+		t.Errorf("expected key-1 not to be cooling")
+	}
+	if stats.RPMUsed != 0 {
+		t.Errorf("expected RPMUsed to be 0, got %d", stats.RPMUsed)
+	}
+
+	// 2. Mark cooling and verify stats
+	pool.MarkCooling("key-1", 10*time.Second, false)
+	stats, found = pool.GetKeyStats("key-1")
+	if !found {
+		t.Fatalf("expected key-1 to be found")
+	}
+	if !stats.Cooling {
+		t.Errorf("expected key-1 to be cooling")
+	}
+
+	// 3. Request stats for non-existent key
+	_, found = pool.GetKeyStats("key-nonexistent")
+	if found {
+		t.Errorf("expected key-nonexistent not to be found")
+	}
+}
+

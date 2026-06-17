@@ -29,6 +29,8 @@ type Server struct {
 	httpServer *http.Server
 	startTime  time.Time
 	wg         sync.WaitGroup
+	stopped    chan struct{}
+	stopOnce   sync.Once
 }
 
 func NewServer(cfg *config.Config, configPath string, stateMgr *config.StateManager, pool *rotation.KeyPool, engine *rotation.RotationEngine) *Server {
@@ -39,6 +41,7 @@ func NewServer(cfg *config.Config, configPath string, stateMgr *config.StateMana
 		pool:       pool,
 		engine:     engine,
 		startTime:  time.Now(),
+		stopped:    make(chan struct{}),
 	}
 }
 
@@ -79,33 +82,40 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
+func (s *Server) Stopped() <-chan struct{} {
+	return s.stopped
+}
+
 func (s *Server) Stop() error {
-	if s.httpServer != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+	s.stopOnce.Do(func() {
+		if s.httpServer != nil {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-		// Shutdown HTTP listener
-		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
-			log.Printf("HTTP server shutdown error: %v", err)
+			// Shutdown HTTP listener
+			if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
+				log.Printf("HTTP server shutdown error: %v", err)
+			}
+
+			// Wait for in-flight requests to complete
+			done := make(chan struct{})
+			go func() {
+				s.wg.Wait()
+				close(done)
+			}()
+
+			select {
+			case <-done:
+				log.Println("All in-flight requests completed.")
+			case <-shutdownCtx.Done():
+				log.Println("Graceful shutdown timeout exceeded; forcing state flush and exit.")
+			}
+
+			// Save state atomically
+			_ = s.stateMgr.SaveState()
 		}
-
-		// Wait for in-flight requests to complete
-		done := make(chan struct{})
-		go func() {
-			s.wg.Wait()
-			close(done)
-		}()
-
-		select {
-		case <-done:
-			log.Println("All in-flight requests completed.")
-		case <-shutdownCtx.Done():
-			log.Println("Graceful shutdown timeout exceeded; forcing state flush and exit.")
-		}
-
-		// Save state atomically
-		_ = s.stateMgr.SaveState()
-	}
+		close(s.stopped)
+	})
 	return nil
 }
 

@@ -135,3 +135,11 @@ func SaveConfig(path string, cfg *Config) error {
 
 	return nil
 }
+
+// MaskAPIKey masks an API key as 'sk-...xxxx'.
+func MaskAPIKey(key string) string {
+	if len(key) < 8 {
+		return "sk-...xxxx"
+	}
+	return "sk-..." + key[len(key)-4:]
+}
