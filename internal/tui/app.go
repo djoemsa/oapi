@@ -37,7 +37,7 @@ func New(tuiCfg TUIConfig) AppModel {
 		tuiCfg:    tuiCfg,
 		dashboard: views.NewDashboardModel(tuiCfg.Ctx, tuiCfg.Cfg, tuiCfg.ConfigPath, tuiCfg.StateMgr, tuiCfg.Pool, tuiCfg.Engine),
 		providers: views.NewProvidersModel(tuiCfg.Ctx, tuiCfg.Cfg, tuiCfg.ConfigPath, tuiCfg.StateMgr, tuiCfg.Pool),
-		routes:    views.NewRoutesModel(),
+		routes:    views.NewRoutesModel(tuiCfg.Cfg, tuiCfg.ConfigPath),
 		logs:      views.NewLogsModel(),
 	}
 }
@@ -56,6 +56,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.tuiCfg.Cancel != nil {
 				m.tuiCfg.Cancel()
 			}
+			m.routes.FlushIfDirty()
 			return m, tea.Quit
 		case "tab", "]":
 			m.activeTab = (m.activeTab + 1) % 4

@@ -434,10 +434,10 @@ Group 6 — Integration & Verification
 [x] Headless serve command and status check execute as expected from CLI interface.
 
 ### ✅ Group 5 Validation Checkpoint
-[ ] T-012 (Done), T-013 (Done), T-014 (Done), T-015 (Done), T-016, T-017 summaries written
+[ ] T-012 (Done), T-013 (Done), T-014 (Done), T-015 (Done), T-016 (Done), T-017 summaries written
 [x] Live dashboard refreshes stats every second.
 [x] Key deletion and import from JSON are fully verified.
-[ ] Routes editor reorders slots using key bindings.
+[x] Routes editor reorders slots using key bindings.
 [ ] Logs search filter isolates matching log lines and exports correctly.
 
 ### ✅ Group 6 Validation Checkpoint
