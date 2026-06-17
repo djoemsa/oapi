@@ -70,6 +70,13 @@ var Providers = map[string]ProviderInfo{
 		DefaultRPD:    0, // No RPD limit, only TPM/RPM
 		ResetBehavior: ResetNone,
 	},
+	"nvidia": {
+		ID:            "nvidia",
+		BaseURL:       "https://integrate.api.nvidia.com/v1",
+		DefaultRPM:    10,
+		DefaultRPD:    1000,
+		ResetBehavior: ResetRolling24h,
+	},
 }
 
 // Groq specific model overrides
@@ -119,4 +126,5 @@ var RecommendedModels = map[string][]string{
 	"openrouter": {"openai/gpt-oss-120b:free", "meta-llama/llama-3.3-70b-instruct:free", "qwen/qwen3-next-80b-a3b-instruct:free"},
 	"mistral":    {"mistral-small-2506", "ministral-3b-2512"},
 	"github":     {"gpt-4o-mini", "Meta-Llama-3.1-70B-Instruct"},
+	"nvidia":     {"meta/llama-4-maverick-17b-128e-instruct"},
 }
