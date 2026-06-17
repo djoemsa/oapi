@@ -48,7 +48,7 @@ var serveCmd = &cobra.Command{
 		cfg, err := config.LoadConfig(path)
 		if err != nil {
 			if os.IsNotExist(err) {
-				fmt.Fprintf(os.Stderr, "Error: config file not found at %s. Please run 'oapi add-key' or launch the TUI to configure.\n", path)
+				fmt.Fprintf(os.Stderr, "Error: config file not found at %s. Please run 'go run main.go add-key' or launch the TUI via 'go run main.go' to configure.\n", path)
 				os.Exit(1)
 			}
 			return fmt.Errorf("failed to load config: %w", err)

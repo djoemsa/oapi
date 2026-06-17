@@ -55,10 +55,10 @@ var rootCmd = &cobra.Command{
 		cfg, err := config.LoadConfig(path)
 		if err != nil {
 			if os.IsNotExist(err) {
-				fmt.Fprintf(os.Stderr, "Error: config file not found at %s. Please run 'oapi add-key' or launch the TUI to configure.\n", path)
-				os.Exit(1)
+				cfg = config.DefaultConfig()
+			} else {
+				return fmt.Errorf("failed to load config: %w", err)
 			}
-			return fmt.Errorf("failed to load config: %w", err)
 		}
 
 		// Port override
