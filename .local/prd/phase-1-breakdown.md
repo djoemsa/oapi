@@ -26,8 +26,8 @@
 Group 0 — Orientation
 [x] T-001  Project setup and initial Git configuration
 Group 1 — Foundation Services
-[ ] T-002  Hardcoded Provider Registry & Model List
-[ ] T-003  YAML Config Parsing and Atomic Save
+[x] T-002  Hardcoded Provider Registry & Model List
+[x] T-003  YAML Config Parsing and Atomic Save
 [ ] T-004  Runtime State JSON Manager
 [ ] T-005  Mockable HTTP Client and Connection Test Utility
 Group 2 — Core Rotation Engine & Limiter
@@ -94,7 +94,7 @@ Group 6 — Integration & Verification
 
 ---
 
-### T-002 — Hardcoded Provider Registry & Model List
+### [x] T-002 — Hardcoded Provider Registry & Model List
 **Goal:** Define default parameters, models, and URLs for all supported LLM providers.
 **Depends on:** T-001
 **Unblocks:** T-003, T-006
@@ -107,11 +107,11 @@ Group 6 — Integration & Verification
 **Done when:**
 * Provider constants are defined and testable.
 * Groq per-model RPD override maps are correctly defined.
-**Summary report:** `docs/reports/summary/{timestamp}_T-002_provider_registry.md`
+**Summary report:** `docs/reports/summary/20260617_133330_T-002_provider_registry.md`
 
 ---
 
-### T-003 — YAML Config Parsing and Atomic Save
+### [x] T-003 — YAML Config Parsing and Atomic Save
 **Goal:** Read and write `oapi.yaml` configurations using `gopkg.in/yaml.v3` with atomic write-then-rename protection.
 **Depends on:** T-001, T-002
 **Unblocks:** T-004, T-006, T-011
@@ -124,7 +124,7 @@ Group 6 — Integration & Verification
 **Done when:**
 * Configuration file can be loaded, parsed, and updated.
 * Atomic writing is verified by testing that a partial write/crash doesn't destroy the existing config.
-**Summary report:** `docs/reports/summary/{timestamp}_T-003_config_parsing.md`
+**Summary report:** `docs/reports/summary/20260617_133400_T-003_config_parsing.md`
 
 ---
 
