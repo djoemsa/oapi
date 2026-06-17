@@ -141,6 +141,9 @@ func (m *RoutesModel) deleteRoute(idx int) {
 func (m *RoutesModel) initAddSlotForm() {
 	providerIDs := make([]string, 0, len(registry.Providers))
 	for id := range registry.Providers {
+		if id == "google" {
+			continue // Skip Google for now
+		}
 		providerIDs = append(providerIDs, id)
 	}
 	sort.Strings(providerIDs)
@@ -288,6 +291,11 @@ func (m RoutesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.mode {
 	case routesModeAddRoute:
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+			m.mode = routesModeRouteList
+			return m, nil
+		}
+
 		var newForm tea.Model
 		newForm, cmd = m.addRouteForm.Update(msg)
 		m.addRouteForm = newForm.(*huh.Form)
@@ -302,6 +310,11 @@ func (m RoutesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case routesModeAddSlot:
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+			m.mode = routesModeSlotList
+			return m, nil
+		}
+
 		var newForm tea.Model
 		newForm, cmd = m.addSlotForm.Update(msg)
 		m.addSlotForm = newForm.(*huh.Form)

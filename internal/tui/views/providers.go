@@ -143,7 +143,8 @@ func (m *ProvidersModel) initForm(isEdit bool) {
 				Title("Provider").
 				Options(
 					huh.NewOption("Groq", "groq"),
-					huh.NewOption("Google", "google"),
+					// "Google" is disabled for now
+					// huh.NewOption("Google", "google"),
 					huh.NewOption("Cerebras", "cerebras"),
 					huh.NewOption("GitHub", "github"),
 					huh.NewOption("OpenRouter", "openrouter"),
@@ -330,6 +331,11 @@ func (m ProvidersModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.mode {
 	case modeForm:
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+			m.mode = modeView
+			return m, nil
+		}
+
 		var newForm tea.Model
 		newForm, cmd = m.form.Update(msg)
 		m.form = newForm.(*huh.Form)
@@ -354,6 +360,11 @@ func (m ProvidersModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case modeImportPath:
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+			m.mode = modeView
+			return m, nil
+		}
+
 		var newForm tea.Model
 		newForm, cmd = m.importForm.Update(msg)
 		m.importForm = newForm.(*huh.Form)
