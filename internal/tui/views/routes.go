@@ -40,17 +40,26 @@ type RoutesModel struct {
 	addRouteForm *huh.Form
 	addSlotForm  *huh.Form
 
-	formRouteName    string
-	formRouteAlias   string
-	formSlotProvider string
-	formSlotModel    string
+	formRouteName    *string
+	formRouteAlias   *string
+	formSlotProvider *string
+	formSlotModel    *string
 }
 
 func NewRoutesModel(cfg *config.Config, configPath string) RoutesModel {
+	formRouteName := ""
+	formRouteAlias := ""
+	formSlotProvider := ""
+	formSlotModel := ""
+
 	return RoutesModel{
-		cfg:        cfg,
-		configPath: configPath,
-		mode:       routesModeRouteList,
+		cfg:              cfg,
+		configPath:       configPath,
+		mode:             routesModeRouteList,
+		formRouteName:    &formRouteName,
+		formRouteAlias:   &formRouteAlias,
+		formSlotProvider: &formSlotProvider,
+		formSlotModel:    &formSlotModel,
 	}
 }
 
@@ -75,15 +84,15 @@ func (m *RoutesModel) FlushIfDirty() {
 }
 
 func (m *RoutesModel) initAddRouteForm() {
-	m.formRouteName = ""
-	m.formRouteAlias = ""
+	*m.formRouteName = ""
+	*m.formRouteAlias = ""
 
 	m.addRouteForm = huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Route Name").
 				Placeholder("e.g. Production GPT-4 Route").
-				Value(&m.formRouteName).
+				Value(m.formRouteName).
 				Validate(func(str string) error {
 					if len(str) == 0 {
 						return fmt.Errorf("name is required")
@@ -93,7 +102,7 @@ func (m *RoutesModel) initAddRouteForm() {
 			huh.NewInput().
 				Title("Model Alias").
 				Placeholder("e.g. gpt-4").
-				Value(&m.formRouteAlias).
+				Value(m.formRouteAlias).
 				Validate(func(str string) error {
 					if len(str) == 0 {
 						return fmt.Errorf("model alias is required")
@@ -108,8 +117,8 @@ func (m *RoutesModel) initAddRouteForm() {
 
 func (m *RoutesModel) saveRoute() {
 	newRoute := config.RouteConfig{
-		Name:       m.formRouteName,
-		ModelAlias: m.formRouteAlias,
+		Name:       *m.formRouteName,
+		ModelAlias: *m.formRouteAlias,
 		Chain:      []config.SlotConfig{},
 		Fallback:   []config.SlotConfig{},
 	}
@@ -136,8 +145,8 @@ func (m *RoutesModel) initAddSlotForm() {
 	}
 	sort.Strings(providerIDs)
 
-	if m.formSlotProvider == "" {
-		m.formSlotProvider = providerIDs[0]
+	if *m.formSlotProvider == "" {
+		*m.formSlotProvider = providerIDs[0]
 	}
 
 	var opts []huh.Option[string]
@@ -146,22 +155,22 @@ func (m *RoutesModel) initAddSlotForm() {
 	}
 
 	placeholder := "e.g. llama-3.3-70b-versatile"
-	if recs, ok := registry.RecommendedModels[m.formSlotProvider]; ok && len(recs) > 0 {
+	if recs, ok := registry.RecommendedModels[*m.formSlotProvider]; ok && len(recs) > 0 {
 		placeholder = fmt.Sprintf("e.g. %s", recs[0])
 	}
 
-	m.formSlotModel = ""
+	*m.formSlotModel = ""
 
 	m.addSlotForm = huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Provider").
 				Options(opts...).
-				Value(&m.formSlotProvider),
+				Value(m.formSlotProvider),
 			huh.NewInput().
 				Title("Model").
 				Placeholder(placeholder).
-				Value(&m.formSlotModel).
+				Value(m.formSlotModel).
 				Validate(func(str string) error {
 					if len(str) == 0 {
 						return fmt.Errorf("model is required")
@@ -180,8 +189,8 @@ func (m *RoutesModel) saveSlot() {
 	}
 
 	newSlot := config.SlotConfig{
-		Provider: m.formSlotProvider,
-		Model:    m.formSlotModel,
+		Provider: *m.formSlotProvider,
+		Model:    *m.formSlotModel,
 	}
 
 	if m.slotSection == 0 {

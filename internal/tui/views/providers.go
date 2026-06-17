@@ -57,14 +57,14 @@ type ProvidersModel struct {
 	editIndex int
 
 	// Form values
-	formID                  string
-	formProvider            string
-	formModel               string
-	formAPIKey              string
-	formRPMLimitStr         string
-	formRPDLimitStr         string
-	formTPMLimitStr         string
-	formStatus              string
+	formID                  *string
+	formProvider            *string
+	formModel               *string
+	formAPIKey              *string
+	formRPMLimitStr         *string
+	formRPDLimitStr         *string
+	formTPMLimitStr         *string
+	formStatus              *string
 
 	// Connection testing state
 	testMsg        string
@@ -78,6 +78,15 @@ func NewProvidersModel(
 	stateMgr *config.StateManager,
 	pool *rotation.KeyPool,
 ) ProvidersModel {
+	formID := ""
+	formProvider := ""
+	formModel := ""
+	formAPIKey := ""
+	formRPMLimitStr := ""
+	formRPDLimitStr := ""
+	formTPMLimitStr := ""
+	formStatus := ""
+
 	return ProvidersModel{
 		ctx:            ctx,
 		cfg:            cfg,
@@ -86,6 +95,14 @@ func NewProvidersModel(
 		pool:           pool,
 		mode:           modeView,
 		testingIndices: make(map[int]bool),
+		formID:         &formID,
+		formProvider:   &formProvider,
+		formModel:      &formModel,
+		formAPIKey:     &formAPIKey,
+		formRPMLimitStr: &formRPMLimitStr,
+		formRPDLimitStr: &formRPDLimitStr,
+		formTPMLimitStr: &formTPMLimitStr,
+		formStatus:     &formStatus,
 	}
 }
 
@@ -101,23 +118,23 @@ func (m *ProvidersModel) initForm(isEdit bool) {
 	m.isEdit = isEdit
 	if isEdit {
 		key := m.cfg.Keys[m.selectedIndex]
-		m.formID = key.ID
-		m.formProvider = key.Provider
-		m.formModel = key.Model
-		m.formAPIKey = key.APIKey
-		m.formRPMLimitStr = strconv.Itoa(key.RPMLimit)
-		m.formRPDLimitStr = strconv.Itoa(key.RPDLimit)
-		m.formTPMLimitStr = strconv.Itoa(key.TPMLimit)
-		m.formStatus = key.Status
+		*m.formID = key.ID
+		*m.formProvider = key.Provider
+		*m.formModel = key.Model
+		*m.formAPIKey = key.APIKey
+		*m.formRPMLimitStr = strconv.Itoa(key.RPMLimit)
+		*m.formRPDLimitStr = strconv.Itoa(key.RPDLimit)
+		*m.formTPMLimitStr = strconv.Itoa(key.TPMLimit)
+		*m.formStatus = key.Status
 	} else {
-		m.formID = ""
-		m.formProvider = "groq"
-		m.formModel = ""
-		m.formAPIKey = ""
-		m.formRPMLimitStr = "0"
-		m.formRPDLimitStr = "0"
-		m.formTPMLimitStr = "0"
-		m.formStatus = "active"
+		*m.formID = ""
+		*m.formProvider = "groq"
+		*m.formModel = ""
+		*m.formAPIKey = ""
+		*m.formRPMLimitStr = "0"
+		*m.formRPDLimitStr = "0"
+		*m.formTPMLimitStr = "0"
+		*m.formStatus = "active"
 	}
 
 	m.form = huh.NewForm(
@@ -132,11 +149,11 @@ func (m *ProvidersModel) initForm(isEdit bool) {
 					huh.NewOption("OpenRouter", "openrouter"),
 					huh.NewOption("Mistral", "mistral"),
 				).
-				Value(&m.formProvider),
+				Value(m.formProvider),
 			huh.NewInput().
 				Title("Model").
 				Placeholder("e.g. llama-3.3-70b-versatile").
-				Value(&m.formModel).
+				Value(m.formModel).
 				Validate(func(str string) error {
 					if len(str) == 0 {
 						return fmt.Errorf("model is required")
@@ -147,7 +164,7 @@ func (m *ProvidersModel) initForm(isEdit bool) {
 				Title("API Key").
 				Placeholder("API Key").
 				EchoMode(huh.EchoModePassword).
-				Value(&m.formAPIKey).
+				Value(m.formAPIKey).
 				Validate(func(str string) error {
 					if len(str) == 0 {
 						return fmt.Errorf("API key is required")
@@ -156,15 +173,15 @@ func (m *ProvidersModel) initForm(isEdit bool) {
 				}),
 			huh.NewInput().
 				Title("RPM Limit (optional, 0 for default)").
-				Value(&m.formRPMLimitStr).
+				Value(m.formRPMLimitStr).
 				Validate(validateInt),
 			huh.NewInput().
 				Title("RPD Limit (optional, 0 for default)").
-				Value(&m.formRPDLimitStr).
+				Value(m.formRPDLimitStr).
 				Validate(validateInt),
 			huh.NewInput().
 				Title("TPM Limit (optional, 0 for default)").
-				Value(&m.formTPMLimitStr).
+				Value(m.formTPMLimitStr).
 				Validate(validateInt),
 			huh.NewSelect[string]().
 				Title("Status").
@@ -172,7 +189,7 @@ func (m *ProvidersModel) initForm(isEdit bool) {
 					huh.NewOption("Active", "active"),
 					huh.NewOption("Error", "error"),
 				).
-				Value(&m.formStatus),
+				Value(m.formStatus),
 		),
 	).WithTheme(huh.ThemeCharm())
 
@@ -223,29 +240,29 @@ func (m *ProvidersModel) testKeyCmd(idx int) tea.Cmd {
 }
 
 func (m *ProvidersModel) saveForm() error {
-	rpm, _ := strconv.Atoi(m.formRPMLimitStr)
-	rpd, _ := strconv.Atoi(m.formRPDLimitStr)
-	tpm, _ := strconv.Atoi(m.formTPMLimitStr)
+	rpm, _ := strconv.Atoi(*m.formRPMLimitStr)
+	rpd, _ := strconv.Atoi(*m.formRPDLimitStr)
+	tpm, _ := strconv.Atoi(*m.formTPMLimitStr)
 
 	if m.isEdit {
-		m.cfg.Keys[m.selectedIndex].Provider = m.formProvider
-		m.cfg.Keys[m.selectedIndex].Model = m.formModel
-		m.cfg.Keys[m.selectedIndex].APIKey = m.formAPIKey
+		m.cfg.Keys[m.selectedIndex].Provider = *m.formProvider
+		m.cfg.Keys[m.selectedIndex].Model = *m.formModel
+		m.cfg.Keys[m.selectedIndex].APIKey = *m.formAPIKey
 		m.cfg.Keys[m.selectedIndex].RPMLimit = rpm
 		m.cfg.Keys[m.selectedIndex].RPDLimit = rpd
 		m.cfg.Keys[m.selectedIndex].TPMLimit = tpm
-		m.cfg.Keys[m.selectedIndex].Status = m.formStatus
+		m.cfg.Keys[m.selectedIndex].Status = *m.formStatus
 	} else {
-		id := fmt.Sprintf("%s-%s-%d", m.formProvider, m.formModel, time.Now().Unix())
+		id := fmt.Sprintf("%s-%s-%d", *m.formProvider, *m.formModel, time.Now().Unix())
 		newKey := config.KeyConfig{
 			ID:       id,
-			Provider: m.formProvider,
-			Model:    m.formModel,
-			APIKey:   m.formAPIKey,
+			Provider: *m.formProvider,
+			Model:    *m.formModel,
+			APIKey:   *m.formAPIKey,
 			RPMLimit: rpm,
 			RPDLimit: rpd,
 			TPMLimit: tpm,
-			Status:   m.formStatus,
+			Status:   *m.formStatus,
 		}
 		m.cfg.Keys = append(m.cfg.Keys, newKey)
 		m.selectedIndex = len(m.cfg.Keys) - 1
