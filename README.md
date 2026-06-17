@@ -6,14 +6,16 @@
 
 ## Features
 
-- **🔄 Key Pool Rotation**: Rotates API keys within a pool based on rate limit availability and health status.
+- **🔄 Key Pool Rotation & Auto-Routing**:
+  - Rotates API keys within a pool based on rate limit availability and health status.
+  - Supports an automatic routing optimization engine (`[o] auto-optimize`) that partitions keys into capability tiers (large vs fast), ranks them by RPM limits, and generates optimized fallback chains.
 - **🛡️ Rate Limiting**: Tracks RPM (Requests Per Minute), RPD (Requests Per Day), and TPM (Tokens Per Minute) limit metrics.
-- **🔌 Headless/Daemon Mode**: Can run as a background service or terminal application.
+- **🔌 Multi-Provider Support**: Supports OpenAI, Anthropic, Google Gemini (OpenAI compatibility endpoint), Groq, Cerebras, GitHub Models, OpenRouter, Mistral, NVIDIA NIM, OpenCode Zen, and Cohere.
 - **🖥️ Bubble Tea v2 TUI**:
   - **Dashboard**: Real-time request telemetry, active keys count, rate limit status, and overall throughput.
   - **Providers View**: Monitor individual LLM providers and trigger connection tests.
   - **Add/Edit Keys**: Interactive forms using `charmbracelet/huh` to add or edit API keys.
-  - **Routes Editor**: View and modify configurations and routing mappings live.
+  - **Routes Editor**: View and modify configurations and routing mappings live. Includes a step-by-step Route Creation Wizard and an Auto-Routing Optimization mode.
   - **Logs Panel**: Interactive, non-blocking logs view with viewport scrolling.
 - **🧪 Comprehensive Test Suite**: Includes integration tests verifying endpoints, streaming completions, rotation logic, graceful shutdown, and memory leak regression protection.
 
