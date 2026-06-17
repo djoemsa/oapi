@@ -44,8 +44,8 @@ Group 5 — Bubble Tea v2 TUI
 [x] T-013  Dashboard View
 [x] T-014  Providers View & Connection Test Trigger
 [x] T-015  Add/Edit Key Form (Huh)
-[ ] T-016  Routes View & Editor
-[ ] T-017  Logs View
+[x] T-016  Routes View & Editor
+[x] T-017  Logs View
 Group 6 — Integration & Verification
 [ ] T-018  Integration and Verification tests
 ```
@@ -434,11 +434,11 @@ Group 6 — Integration & Verification
 [x] Headless serve command and status check execute as expected from CLI interface.
 
 ### ✅ Group 5 Validation Checkpoint
-[ ] T-012 (Done), T-013 (Done), T-014 (Done), T-015 (Done), T-016 (Done), T-017 summaries written
+[x] T-012 (Done), T-013 (Done), T-014 (Done), T-015 (Done), T-016 (Done), T-017 summaries written
 [x] Live dashboard refreshes stats every second.
 [x] Key deletion and import from JSON are fully verified.
 [x] Routes editor reorders slots using key bindings.
-[ ] Logs search filter isolates matching log lines and exports correctly.
+[x] Logs search filter isolates matching log lines and exports correctly.
 
 ### ✅ Group 6 Validation Checkpoint
 [ ] T-018 summary written

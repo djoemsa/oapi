@@ -19,6 +19,7 @@ type TUIConfig struct {
 	Engine     *rotation.RotationEngine
 	Ctx        context.Context
 	Cancel     context.CancelFunc
+	LogCh      <-chan string
 }
 
 type AppModel struct {
@@ -38,12 +39,15 @@ func New(tuiCfg TUIConfig) AppModel {
 		dashboard: views.NewDashboardModel(tuiCfg.Ctx, tuiCfg.Cfg, tuiCfg.ConfigPath, tuiCfg.StateMgr, tuiCfg.Pool, tuiCfg.Engine),
 		providers: views.NewProvidersModel(tuiCfg.Ctx, tuiCfg.Cfg, tuiCfg.ConfigPath, tuiCfg.StateMgr, tuiCfg.Pool),
 		routes:    views.NewRoutesModel(tuiCfg.Cfg, tuiCfg.ConfigPath),
-		logs:      views.NewLogsModel(),
+		logs:      views.NewLogsModel(tuiCfg.LogCh),
 	}
 }
 
 func (m AppModel) Init() tea.Cmd {
-	return m.dashboard.Init()
+	return tea.Batch(
+		m.dashboard.Init(),
+		m.logs.Init(),
+	)
 }
 
 func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

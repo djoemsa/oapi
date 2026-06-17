@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -10,6 +11,7 @@ import (
 	"syscall"
 
 	"oapi/internal/config"
+	"oapi/internal/proxy"
 	"oapi/internal/rotation"
 	"oapi/internal/tui"
 
@@ -45,8 +47,9 @@ var rootCmd = &cobra.Command{
 		}
 		defer logFile.Close()
 
-		// For TUI, log only to the log file to avoid corrupting the screen
-		log.SetOutput(logFile)
+		// For TUI, log to both the log file and the channel to feed the Logs view
+		logWriter := proxy.NewLogWriter(256)
+		log.SetOutput(io.MultiWriter(logFile, logWriter))
 
 		// Load config
 		cfg, err := config.LoadConfig(path)
@@ -86,6 +89,7 @@ var rootCmd = &cobra.Command{
 			Engine:     engine,
 			Ctx:        ctx,
 			Cancel:     cancel,
+			LogCh:      logWriter.Subscribe(),
 		})
 		return err
 	},
