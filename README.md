@@ -107,6 +107,40 @@ keys:
 
 ---
 
+## API Usage & Authentication
+
+`oapi` runs as an OpenAI-compatible proxy. You can direct any OpenAI client SDK or tool to it by changing the base URL to `http://127.0.0.1:8080/v1` (or whichever port the proxy server is running on).
+
+### 1. Authentication
+- **Default (No API Key)**: By default, the proxy does not require an API key from the client. You can pass any arbitrary value (e.g. `sk-xxxx`) or omit the authorization header.
+- **Restricted Access**: If you want to protect your proxy, set the `dummy_api_key` in the `server` block of your `oapi.yaml`:
+  ```yaml
+  server:
+    port: 8080
+    host: "127.0.0.1"
+    dummy_api_key: "your-custom-proxy-token"
+  ```
+  Once set, all clients must authenticate by passing this exact token:
+  ```http
+  Authorization: Bearer your-custom-proxy-token
+  ```
+
+### 2. Request Routing
+When sending requests to `/v1/chat/completions`, set the `model` parameter to match one of the route aliases defined in your routes (e.g., `large`, `fast`, `default`, or a custom name):
+```bash
+curl http://127.0.0.1:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-any-token" \
+  -d '{
+    "model": "large",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+- **Exact Match**: The proxy matches the requested `model` name directly against your route's `model_alias`.
+- **Wildcard Match**: If the requested model is not found in your routes, the proxy will fallback to the route with alias `"*"` (if defined).
+
+---
+
 ## Development & Testing
 
 Run all unit and integration tests using:
