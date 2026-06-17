@@ -10,7 +10,7 @@
   - Rotates API keys within a pool based on rate limit availability and health status.
   - Supports an automatic routing optimization engine (`[o] auto-optimize`) that partitions keys into capability tiers (large vs fast), ranks them by RPM limits, and generates optimized fallback chains.
 - **🛡️ Rate Limiting**: Tracks RPM (Requests Per Minute), RPD (Requests Per Day), and TPM (Tokens Per Minute) limit metrics.
-- **🔌 Multi-Provider Support**: Supports OpenAI, Anthropic, Google Gemini (OpenAI compatibility endpoint), Groq, Cerebras, GitHub Models, OpenRouter, Mistral, NVIDIA NIM, OpenCode Zen, and Cohere.
+- **🔌 Multi-Provider Support**: Supports OpenAI, Anthropic, Google Gemini (OpenAI compatibility endpoint), Groq, Cerebras, GitHub Models, OpenRouter, Mistral, NVIDIA NIM, OpenCode Zen, Cohere, and SumoPod.
 - **🖥️ Bubble Tea v2 TUI**:
   - **Dashboard**: Real-time request telemetry, active keys count, rate limit status, and overall throughput.
   - **Providers View**: Monitor individual LLM providers and trigger connection tests.
@@ -103,6 +103,18 @@ keys:
     rpd_limit: 10000
     tpm_limit: 90000
     status: "active"
+routes:
+  - name: "custom-route"
+    model_alias: "large"
+    chain:
+      - provider: "openai"
+        model: "gpt-4o"
+    fallback:
+      - provider: "groq"
+        model: "llama-3.3-70b-versatile"
+    finally:
+      provider: "sumopod"
+      model: "gpt-4o-mini"
 ```
 
 ---
@@ -138,6 +150,7 @@ curl http://127.0.0.1:8080/v1/chat/completions \
 ```
 - **Exact Match**: The proxy matches the requested `model` name directly against your route's `model_alias`.
 - **Wildcard Match**: If the requested model is not found in your routes, the proxy will fallback to the route with alias `"*"` (if defined).
+- **Finally Fallback**: When both the primary chain slots and fallback pool slots for a route are rate-limited or exhausted, requests are routed to the `finally` slot (which dynamically defaults to `sumopod` if configured).
 
 ---
 

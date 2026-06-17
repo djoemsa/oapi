@@ -23,13 +23,33 @@ func TestProviderRegistry(t *testing.T) {
 		t.Errorf("unexpected groq defaults: RPM %d, RPD %d", groq.DefaultRPM, groq.DefaultRPD)
 	}
 
-	// Verify Groq model overrides
-	override, exists := registry.GroqModelOverrides["llama-3.3-70b-versatile"]
+	// Verify SumoPod provider registry defaults
+	sumopod, exists := registry.Providers["sumopod"]
 	if !exists {
-		t.Fatal("expected llama-3.3-70b-versatile override to exist")
+		t.Fatal("expected sumopod provider to exist in registry")
 	}
-	if override.RPD != 1000 || override.TPM != 12000 {
-		t.Errorf("unexpected model override values: RPD %d, TPM %d", override.RPD, override.TPM)
+	if sumopod.BaseURL != "https://ai.sumopod.com/v1" {
+		t.Errorf("unexpected sumopod base URL: %s", sumopod.BaseURL)
+	}
+	if sumopod.DefaultRPM != 0 {
+		t.Errorf("unexpected sumopod default RPM: %d", sumopod.DefaultRPM)
+	}
+
+	// Verify SumoPod recommended models
+	recs, exists := registry.RecommendedModels["sumopod"]
+	if !exists || len(recs) != 4 {
+		t.Fatalf("expected sumopod recommended models to exist with 4 models")
+	}
+	expectedModels := map[string]bool{
+		"gpt-4o-mini":     true,
+		"gpt-4o":          true,
+		"claude-3-haiku":  true,
+		"deepseek-chat":   true,
+	}
+	for _, m := range recs {
+		if !expectedModels[m] {
+			t.Errorf("unexpected recommended model for sumopod: %s", m)
+		}
 	}
 }
 

@@ -91,6 +91,13 @@ var Providers = map[string]ProviderInfo{
 		DefaultRPD:    1000,
 		ResetBehavior: ResetRolling24h,
 	},
+	"sumopod": {
+		ID:            "sumopod",
+		BaseURL:       "https://ai.sumopod.com/v1",
+		DefaultRPM:    0,
+		DefaultRPD:    0,
+		ResetBehavior: ResetNone,
+	},
 }
 
 // Groq specific model overrides
@@ -143,4 +150,5 @@ var RecommendedModels = map[string][]string{
 	"nvidia":     {"meta/llama-4-maverick-17b-128e-instruct"},
 	"opencode":   {"deepseek-v4-flash-free", "mimo-v2.5-free", "north-mini-code-free", "nemotron-3-ultra-free", "big-pickle"},
 	"cohere":     {"command-r-plus", "command-r", "command-r7b", "command-a"},
+	"sumopod":    {"gpt-4o-mini", "gpt-4o", "claude-3-haiku", "deepseek-chat"},
 }

@@ -364,3 +364,110 @@ func TestGetKeyStats(t *testing.T) {
 	}
 }
 
+func TestFinallyFallback(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Keys = []config.KeyConfig{
+		{
+			ID:       "primary-key",
+			Provider: "groq",
+			Model:    "model-a",
+			Status:   "active",
+		},
+		{
+			ID:       "fallback-key",
+			Provider: "google",
+			Model:    "model-b",
+			Status:   "active",
+		},
+		{
+			ID:       "finally-key",
+			Provider: "nvidia",
+			Model:    "model-c",
+			Status:   "active",
+		},
+		{
+			ID:       "sumopod-key",
+			Provider: "sumopod",
+			Model:    "model-sumo",
+			Status:   "active",
+		},
+	}
+	cfg.Routes = []config.RouteConfig{
+		{
+			Name:       "explicit-finally",
+			ModelAlias: "alias-1",
+			Chain: []config.SlotConfig{
+				{Provider: "groq", Model: "model-a"},
+			},
+			Fallback: []config.SlotConfig{
+				{Provider: "google", Model: "model-b"},
+			},
+			Finally: &config.SlotConfig{
+				Provider: "nvidia",
+				Model:    "model-c",
+			},
+		},
+		{
+			Name:       "default-finally",
+			ModelAlias: "alias-2",
+			Chain: []config.SlotConfig{
+				{Provider: "groq", Model: "model-a"},
+			},
+			Fallback: []config.SlotConfig{
+				{Provider: "google", Model: "model-b"},
+			},
+			Finally: nil, // Should default to sumopod key
+		},
+	}
+
+	pool, engine, _, cleanup := setupTestEngine(t, cfg)
+	defer cleanup()
+
+	// 1. Primary is active, should route to primary
+	key, err := engine.RouteRequest("alias-1", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if key.ID != "primary-key" {
+		t.Errorf("expected primary-key, got %s", key.ID)
+	}
+
+	// 2. Primary is cooling, fallback is active -> should route to fallback
+	pool.MarkCooling("primary-key", 10*time.Second, false)
+	key, err = engine.RouteRequest("alias-1", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if key.ID != "fallback-key" {
+		t.Errorf("expected fallback-key, got %s", key.ID)
+	}
+
+	// 3. Both primary and fallback cooling -> should route to finally-key (nvidia)
+	pool.MarkCooling("fallback-key", 10*time.Second, false)
+	key, err = engine.RouteRequest("alias-1", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if key.ID != "finally-key" {
+		t.Errorf("expected finally-key, got %s", key.ID)
+	}
+
+	// 4. Test dynamic default to sumopod for alias-2
+	key, err = engine.RouteRequest("alias-2", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if key.ID != "sumopod-key" {
+		t.Errorf("expected sumopod-key by default fallback, got %s", key.ID)
+	}
+
+	// 5. Finally key also cooling -> should fail with rate limit error
+	pool.MarkCooling("finally-key", 10*time.Second, false)
+	pool.MarkCooling("sumopod-key", 10*time.Second, false)
+	_, err = engine.RouteRequest("alias-1", nil)
+	if err == nil {
+		t.Fatal("expected error when finally is cooling, got nil")
+	}
+}
+
+

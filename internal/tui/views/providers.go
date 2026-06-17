@@ -151,6 +151,7 @@ func (m *ProvidersModel) initForm(isEdit bool) {
 					huh.NewOption("NVIDIA NIM", "nvidia"),
 					huh.NewOption("OpenCode Zen", "opencode"),
 					huh.NewOption("Cohere", "cohere"),
+					huh.NewOption("SumoPod", "sumopod"),
 				).
 				Value(m.formProvider),
 			huh.NewInput().

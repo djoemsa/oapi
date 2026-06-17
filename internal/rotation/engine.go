@@ -128,6 +128,44 @@ func (re *RotationEngine) RouteRequest(model string, triedKeys map[string]bool) 
 		}
 	}
 
+	// 4.5. Try Finally Fallback
+	var finallySlot *config.SlotConfig
+	if matchedRoute.Finally != nil {
+		finallySlot = matchedRoute.Finally
+	} else {
+		// Default to sumopod if there is a sumopod key configured
+		var sumopodModel string
+		for _, k := range re.kp.cfg.Keys {
+			if k.Provider == "sumopod" && (k.Status == "active" || k.Status == "") {
+				sumopodModel = k.Model
+				break
+			}
+		}
+		if sumopodModel != "" {
+			finallySlot = &config.SlotConfig{Provider: "sumopod", Model: sumopodModel}
+		}
+	}
+
+	if finallySlot != nil {
+		slotKeys := re.kp.GetKeysForProviderAndModel(finallySlot.Provider, finallySlot.Model)
+		var usableFinallyKeys []config.KeyConfig
+		for _, key := range slotKeys {
+			if triedKeys != nil && triedKeys[key.ID] {
+				continue
+			}
+			if usable, _ := re.kp.CanUseKey(key.ID); usable {
+				usableFinallyKeys = append(usableFinallyKeys, key)
+			}
+		}
+
+		if len(usableFinallyKeys) > 0 {
+			finallyKey := fmt.Sprintf("finally:%s", matchedRoute.ModelAlias)
+			val := re.getCounter(finallyKey)
+			selected := usableFinallyKeys[int(val)%len(usableFinallyKeys)]
+			return selected, nil
+		}
+	}
+
 	// 5. If everything is exhausted, find the earliest cooling expiration time
 	var earliestCooldown time.Time
 	hasCooldown := false
@@ -154,6 +192,14 @@ func (re *RotationEngine) RouteRequest(model string, triedKeys map[string]bool) 
 	// Inspect all keys in fallback pool slots
 	for _, slot := range matchedRoute.Fallback {
 		slotKeys := re.kp.GetKeysForProviderAndModel(slot.Provider, slot.Model)
+		for _, key := range slotKeys {
+			inspectKey(key)
+		}
+	}
+
+	// Inspect all keys in finally fallback slot
+	if finallySlot != nil {
+		slotKeys := re.kp.GetKeysForProviderAndModel(finallySlot.Provider, finallySlot.Model)
 		for _, key := range slotKeys {
 			inspectKey(key)
 		}

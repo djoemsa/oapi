@@ -343,6 +343,22 @@ func (m *RoutesModel) autoGenerateRoutes() {
 		return slots
 	}
 
+	var sumopodKey *config.KeyConfig
+	for _, k := range m.cfg.Keys {
+		if k.Provider == "sumopod" && (k.Status == "active" || k.Status == "") {
+			sumopodKey = &k
+			break
+		}
+	}
+
+	var sumopodFinally *config.SlotConfig
+	if sumopodKey != nil {
+		sumopodFinally = &config.SlotConfig{
+			Provider: "sumopod",
+			Model:    sumopodKey.Model,
+		}
+	}
+
 	largeSlots := sortByRPM(largeKeys)
 	fastSlots := sortByRPM(fastKeys)
 	allSlots := sortByRPM(allKeys)
@@ -351,6 +367,7 @@ func (m *RoutesModel) autoGenerateRoutes() {
 		Name:       "Auto Optimal Large Route",
 		ModelAlias: "large",
 		Chain:      largeSlots[:1],
+		Finally:    sumopodFinally,
 	}
 	if len(largeSlots) > 1 {
 		routeLarge.Fallback = largeSlots[1:]
@@ -360,6 +377,7 @@ func (m *RoutesModel) autoGenerateRoutes() {
 		Name:       "Auto Optimal Fast Route",
 		ModelAlias: "fast",
 		Chain:      fastSlots[:1],
+		Finally:    sumopodFinally,
 	}
 	if len(fastSlots) > 1 {
 		routeFast.Fallback = fastSlots[1:]
@@ -369,6 +387,7 @@ func (m *RoutesModel) autoGenerateRoutes() {
 		Name:       "Auto Default Route",
 		ModelAlias: "default",
 		Chain:      allSlots[:1],
+		Finally:    sumopodFinally,
 	}
 	if len(allSlots) > 1 {
 		routeDefault.Fallback = allSlots[1:]
@@ -411,7 +430,9 @@ func (m *RoutesModel) initAddSlotForm() {
 	}
 	sort.Strings(providerIDs)
 
-	if *m.formSlotProvider == "" {
+	if m.slotSection == 2 {
+		*m.formSlotProvider = "sumopod"
+	} else if *m.formSlotProvider == "" {
 		*m.formSlotProvider = providerIDs[0]
 	}
 
@@ -462,9 +483,12 @@ func (m *RoutesModel) saveSlot() {
 	if m.slotSection == 0 {
 		m.cfg.Routes[m.routeIdx].Chain = append(m.cfg.Routes[m.routeIdx].Chain, newSlot)
 		m.slotIdx = len(m.cfg.Routes[m.routeIdx].Chain) - 1
-	} else {
+	} else if m.slotSection == 1 {
 		m.cfg.Routes[m.routeIdx].Fallback = append(m.cfg.Routes[m.routeIdx].Fallback, newSlot)
 		m.slotIdx = len(m.cfg.Routes[m.routeIdx].Fallback) - 1
+	} else {
+		m.cfg.Routes[m.routeIdx].Finally = &newSlot
+		m.slotIdx = 0
 	}
 
 	m.saveNow()
@@ -483,13 +507,16 @@ func (m *RoutesModel) deleteSlot() {
 		}
 		m.cfg.Routes[m.routeIdx].Chain = append(chain[:m.slotIdx], chain[m.slotIdx+1:]...)
 		m.slotIdx = max(0, len(m.cfg.Routes[m.routeIdx].Chain)-1)
-	} else {
+	} else if m.slotSection == 1 {
 		fallback := m.cfg.Routes[m.routeIdx].Fallback
 		if m.slotIdx < 0 || m.slotIdx >= len(fallback) {
 			return
 		}
 		m.cfg.Routes[m.routeIdx].Fallback = append(fallback[:m.slotIdx], fallback[m.slotIdx+1:]...)
 		m.slotIdx = max(0, len(m.cfg.Routes[m.routeIdx].Fallback)-1)
+	} else {
+		m.cfg.Routes[m.routeIdx].Finally = nil
+		m.slotIdx = 0
 	}
 
 	m.saveNow()
@@ -498,6 +525,10 @@ func (m *RoutesModel) deleteSlot() {
 
 func (m *RoutesModel) reorderSlotUp() {
 	if len(m.cfg.Routes) == 0 || m.routeIdx < 0 || m.routeIdx >= len(m.cfg.Routes) {
+		return
+	}
+
+	if m.slotSection == 2 {
 		return
 	}
 
@@ -521,6 +552,10 @@ func (m *RoutesModel) reorderSlotUp() {
 
 func (m *RoutesModel) reorderSlotDown() {
 	if len(m.cfg.Routes) == 0 || m.routeIdx < 0 || m.routeIdx >= len(m.cfg.Routes) {
+		return
+	}
+
+	if m.slotSection == 2 {
 		return
 	}
 
@@ -732,19 +767,23 @@ func (m RoutesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				var limit int
 				if m.slotSection == 0 {
 					limit = len(m.cfg.Routes[m.routeIdx].Chain)
-				} else {
+				} else if m.slotSection == 1 {
 					limit = len(m.cfg.Routes[m.routeIdx].Fallback)
+				} else {
+					limit = 1
 				}
 				if m.slotIdx < limit-1 {
 					m.slotIdx++
 				}
 			case "space":
-				m.slotSection = 1 - m.slotSection
+				m.slotSection = (m.slotSection + 1) % 3
 				var limit int
 				if m.slotSection == 0 {
 					limit = len(m.cfg.Routes[m.routeIdx].Chain)
-				} else {
+				} else if m.slotSection == 1 {
 					limit = len(m.cfg.Routes[m.routeIdx].Fallback)
+				} else {
+					limit = 1
 				}
 				m.slotIdx = max(0, limit-1)
 			case "a":
@@ -754,8 +793,14 @@ func (m RoutesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				var limit int
 				if m.slotSection == 0 {
 					limit = len(m.cfg.Routes[m.routeIdx].Chain)
-				} else {
+				} else if m.slotSection == 1 {
 					limit = len(m.cfg.Routes[m.routeIdx].Fallback)
+				} else {
+					if m.cfg.Routes[m.routeIdx].Finally != nil {
+						limit = 1
+					} else {
+						limit = 0
+					}
 				}
 				if limit > 0 {
 					m.mode = routesModeDeleteSlot
@@ -955,6 +1000,42 @@ func (m RoutesModel) View() string {
 					} else {
 						details = append(details, slotText)
 					}
+				}
+			}
+
+			details = append(details, "")
+
+			// Finally Fallback
+			details = append(details, styles.HeaderStyle.Render("FINALLY FALLBACK"))
+			if route.Finally == nil {
+				prefix := "  "
+				if m.mode == routesModeSlotList && m.slotSection == 2 && m.slotIdx == 0 {
+					prefix = "> "
+				}
+				slotText := prefix + "(None)"
+				if m.mode == routesModeSlotList && m.slotSection == 2 && m.slotIdx == 0 {
+					details = append(details, lipgloss.NewStyle().
+						Background(styles.ColorBorder).
+						Foreground(styles.ColorAccent).
+						Bold(true).
+						Render(slotText))
+				} else {
+					details = append(details, slotText)
+				}
+			} else {
+				prefix := "  "
+				if m.mode == routesModeSlotList && m.slotSection == 2 && m.slotIdx == 0 {
+					prefix = "> "
+				}
+				slotText := fmt.Sprintf("%s%s / %s", prefix, route.Finally.Provider, route.Finally.Model)
+				if m.mode == routesModeSlotList && m.slotSection == 2 && m.slotIdx == 0 {
+					details = append(details, lipgloss.NewStyle().
+						Background(styles.ColorBorder).
+						Foreground(styles.ColorAccent).
+						Bold(true).
+						Render(slotText))
+				} else {
+					details = append(details, slotText)
 				}
 			}
 

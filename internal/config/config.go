@@ -36,6 +36,7 @@ type RouteConfig struct {
 	ModelAlias string       `yaml:"model_alias"`
 	Chain      []SlotConfig `yaml:"chain"`
 	Fallback   []SlotConfig `yaml:"fallback,omitempty"`
+	Finally    *SlotConfig  `yaml:"finally,omitempty"`
 }
 
 type ProviderOverride struct {
